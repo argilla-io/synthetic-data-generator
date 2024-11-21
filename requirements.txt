@@ -37,7 +37,7 @@ fonttools==4.55.0
 frozenlist==1.5.0
 fsspec==2024.9.0
 fsspec[http]==2024.9.0
-gradio==4.44.1
+gradio==5.5.0
 gradio-client==1.3.0
 gradio-huggingfacehub-search==0.0.7
 gradio[oauth]==4.44.1
