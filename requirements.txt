@@ -105,7 +105,7 @@ pydub==0.25.1
 pygments==2.18.0
 pyparsing==3.2.0
 python-dateutil==2.9.0.post0
-python-multipart==0.0.17
+python-multipart==0.0.18
 pytz==2024.2
 pywin32==308; platform_system == "Windows"
 pyyaml==6.0.2
