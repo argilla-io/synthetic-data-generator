@@ -25,6 +25,7 @@ dependencies = [
     "model2vec>=0.2.4,<1.0.0",
     "gradio-huggingfacehub-search>=0.0.12,<1.0.0",
     "argilla>=2.4.0,<3.0.0",
+    "unstructured[md]>=0.16.0,<1.0.0",
 ]
 
 [build-system]

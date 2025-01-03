@@ -1,6 +1,7 @@
 from synthetic_dataset_generator._tabbedinterface import TabbedInterface
 
-# from synthetic_dataset_generator.apps.eval import app as eval_app
+from synthetic_dataset_generator.apps.eval import app as eval_app
+from synthetic_dataset_generator.apps.rag import app as rag_app
 from synthetic_dataset_generator.apps.about import app as about_app
 from synthetic_dataset_generator.apps.chat import app as chat_app
 from synthetic_dataset_generator.apps.textcat import app as textcat_app
@@ -22,9 +23,9 @@ button[role="tab"][aria-selected="true"]:hover {border-color: var(--button-prima
 image = """<br><img src="https://raw.githubusercontent.com/argilla-io/synthetic-data-generator/main/assets/logo.svg" alt="Synthetic Data Generator Logo" style="display: block; margin-left: auto; margin-right: auto; width: clamp(50%, 400px, 100%)"/>"""
 
 demo = TabbedInterface(
-    [textcat_app, chat_app, about_app],
-    ["Text Classification", "Chat Data", "About"],
+    [textcat_app, chat_app, rag_app, about_app],
+    ["Text Classification", "Chat Data", "RAG", "About"],
     css=css,
     title=image,
     theme=theme,
-)
+) # TODO: Remove the rag_app
