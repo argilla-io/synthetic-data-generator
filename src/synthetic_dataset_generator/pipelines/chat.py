@@ -1,4 +1,3 @@
-from distilabel.llms import InferenceEndpointsLLM
 from distilabel.steps.tasks import ChatGeneration, Magpie, TextGeneration
 
 from synthetic_dataset_generator.constants import (
@@ -7,7 +6,7 @@ from synthetic_dataset_generator.constants import (
     MAX_NUM_TOKENS,
     MODEL,
 )
-from synthetic_dataset_generator.pipelines.base import _get_next_api_key
+from synthetic_dataset_generator.pipelines.base import _get_llm
 
 INFORMATION_SEEKING_PROMPT = (
     "You are an AI assistant designed to provide accurate and concise information on a wide"
@@ -149,18 +148,13 @@ def _get_output_mappings(num_turns):
 
 
 def get_prompt_generator():
+    generation_kwargs = {
+        "temperature": 0.8,
+        "max_new_tokens": MAX_NUM_TOKENS,
+        "do_sample": True,
+    }
     prompt_generator = TextGeneration(
-        llm=InferenceEndpointsLLM(
-            api_key=_get_next_api_key(),
-            model_id=MODEL,
-            tokenizer_id=MODEL,
-            base_url=BASE_URL,
-            generation_kwargs={
-                "temperature": 0.8,
-                "max_new_tokens": MAX_NUM_TOKENS,
-                "do_sample": True,
-            },
-        ),
+        llm=_get_llm(generation_kwargs=generation_kwargs),
         system_prompt=PROMPT_CREATION_PROMPT,
         use_system_prompt=True,
     )
@@ -172,38 +166,34 @@ def get_magpie_generator(system_prompt, num_turns, temperature, is_sample):
     input_mappings = _get_output_mappings(num_turns)
     output_mappings = input_mappings.copy()
     if num_turns == 1:
+        generation_kwargs = {
+            "temperature": temperature,
+            "do_sample": True,
+            "max_new_tokens": 256 if is_sample else int(MAX_NUM_TOKENS * 0.25),
+            "stop_sequences": _STOP_SEQUENCES,
+        }
         magpie_generator = Magpie(
-            llm=InferenceEndpointsLLM(
-                model_id=MODEL,
-                tokenizer_id=MODEL,
-                base_url=BASE_URL,
-                api_key=_get_next_api_key(),
+            llm=_get_llm(
+                generation_kwargs=generation_kwargs,
                 magpie_pre_query_template=MAGPIE_PRE_QUERY_TEMPLATE,
-                generation_kwargs={
-                    "temperature": temperature,
-                    "do_sample": True,
-                    "max_new_tokens": 256 if is_sample else int(MAX_NUM_TOKENS * 0.25),
-                    "stop_sequences": _STOP_SEQUENCES,
-                },
+                use_magpie_template=True,
             ),
             n_turns=num_turns,
             output_mappings=output_mappings,
             only_instruction=True,
         )
     else:
+        generation_kwargs = {
+            "temperature": temperature,
+            "do_sample": True,
+            "max_new_tokens": 256 if is_sample else int(MAX_NUM_TOKENS * 0.5),
+            "stop_sequences": _STOP_SEQUENCES,
+        }
         magpie_generator = Magpie(
-            llm=InferenceEndpointsLLM(
-                model_id=MODEL,
-                tokenizer_id=MODEL,
-                base_url=BASE_URL,
-                api_key=_get_next_api_key(),
+            llm=_get_llm(
+                generation_kwargs=generation_kwargs,
                 magpie_pre_query_template=MAGPIE_PRE_QUERY_TEMPLATE,
-                generation_kwargs={
-                    "temperature": temperature,
-                    "do_sample": True,
-                    "max_new_tokens": 256 if is_sample else int(MAX_NUM_TOKENS * 0.5),
-                    "stop_sequences": _STOP_SEQUENCES,
-                },
+                use_magpie_template=True,
             ),
             end_with_user=True,
             n_turns=num_turns,
@@ -213,51 +203,25 @@ def get_magpie_generator(system_prompt, num_turns, temperature, is_sample):
     return magpie_generator
 
 
-def get_prompt_rewriter():
-    prompt_rewriter = TextGeneration(
-        llm=InferenceEndpointsLLM(
-            model_id=MODEL,
-            tokenizer_id=MODEL,
-            base_url=BASE_URL,
-            api_key=_get_next_api_key(),
-            generation_kwargs={
-                "temperature": 1,
-            },
-        ),
-    )
-    prompt_rewriter.load()
-    return prompt_rewriter
-
-
 def get_response_generator(system_prompt, num_turns, temperature, is_sample):
     if num_turns == 1:
+        generation_kwargs = {
+            "temperature": temperature,
+            "max_new_tokens": 256 if is_sample else int(MAX_NUM_TOKENS * 0.5),
+        }
         response_generator = TextGeneration(
-            llm=InferenceEndpointsLLM(
-                model_id=MODEL,
-                tokenizer_id=MODEL,
-                base_url=BASE_URL,
-                api_key=_get_next_api_key(),
-                generation_kwargs={
-                    "temperature": temperature,
-                    "max_new_tokens": 256 if is_sample else int(MAX_NUM_TOKENS * 0.5),
-                },
-            ),
+            llm=_get_llm(generation_kwargs=generation_kwargs),
             system_prompt=system_prompt,
             output_mappings={"generation": "completion"},
             input_mappings={"instruction": "prompt"},
         )
     else:
+        generation_kwargs = {
+            "temperature": temperature,
+            "max_new_tokens": MAX_NUM_TOKENS,
+        }
         response_generator = ChatGeneration(
-            llm=InferenceEndpointsLLM(
-                model_id=MODEL,
-                tokenizer_id=MODEL,
-                base_url=BASE_URL,
-                api_key=_get_next_api_key(),
-                generation_kwargs={
-                    "temperature": temperature,
-                    "max_new_tokens": MAX_NUM_TOKENS,
-                },
-            ),
+            llm=_get_llm(generation_kwargs=generation_kwargs),
             output_mappings={"generation": "completion"},
             input_mappings={"conversation": "messages"},
         )
@@ -293,7 +257,7 @@ with Pipeline(name="sft") as pipeline:
                 "max_new_tokens": {MAX_NUM_TOKENS},
                 "stop_sequences": {_STOP_SEQUENCES}
             }},
-            api_key=os.environ["BASE_URL"],
+            api_key=os.environ["API_KEY"],
         ),
         n_turns={num_turns},
         num_rows={num_rows},

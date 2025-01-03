@@ -1,4 +1,5 @@
 import json
+import uuid
 import warnings
 from typing import List, Optional, Union
 
@@ -53,6 +54,10 @@ def list_orgs(oauth_token: Union[OAuthToken, None] = None):
         return []
 
     return organizations
+
+
+def get_random_repo_name():
+    return f"my-distiset-{str(uuid.uuid4())[:8]}"
 
 
 def get_org_dropdown(oauth_token: Union[OAuthToken, None] = None):

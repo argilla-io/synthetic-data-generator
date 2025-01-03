@@ -41,6 +41,7 @@ from synthetic_dataset_generator.utils import (
     extract_column_names,
     get_argilla_client,
     get_org_dropdown,
+    get_random_repo_name,
     pad_or_truncate_list,
     process_columns,
     swap_visibility,
@@ -359,7 +360,7 @@ def push_dataset_to_hub(
 ):
     repo_id = validate_push_to_hub(org_name, repo_name)
     dataset = Dataset.from_pandas(dataframe)
-    dataset = combine_datasets(repo_id, dataset)
+    dataset = combine_datasets(repo_id, dataset, oauth_token)
     distiset = Distiset({"default": dataset})
     distiset.push_to_hub(
         repo_id=repo_id,
@@ -907,3 +908,4 @@ with gr.Blocks() as app:
 
     app.load(fn=swap_visibility, outputs=main_ui)
     app.load(fn=get_org_dropdown, outputs=[org_name])
+    app.load(fn=get_random_repo_name, outputs=[repo_name])

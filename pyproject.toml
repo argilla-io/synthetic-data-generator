@@ -18,7 +18,7 @@ readme = "README.md"
 license = {text = "Apache 2"}
 
 dependencies = [
-    "distilabel[hf-inference-endpoints,argilla,outlines,instructor]>=1.4.1,<2.0.0",
+    "distilabel[argilla,hf-inference-endpoints,hf-transformers,instructor,llama-cpp,ollama,openai,outlines] @ git+https://github.com/argilla-io/distilabel.git@feat/add-magpie-support-llama-cpp-ollama",
     "gradio[oauth]>=5.4.0,<6.0.0",
     "transformers>=4.44.2,<5.0.0",
     "sentence-transformers>=3.2.0,<4.0.0",

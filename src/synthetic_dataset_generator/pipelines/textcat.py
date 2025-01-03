@@ -1,7 +1,6 @@
 import random
 from typing import List
 
-from distilabel.llms import InferenceEndpointsLLM, OpenAILLM
 from distilabel.steps.tasks import (
     GenerateTextClassificationData,
     TextClassification,
@@ -9,8 +8,12 @@ from distilabel.steps.tasks import (
 )
 from pydantic import BaseModel, Field
 
-from synthetic_dataset_generator.constants import BASE_URL, MAX_NUM_TOKENS, MODEL
-from synthetic_dataset_generator.pipelines.base import _get_next_api_key
+from synthetic_dataset_generator.constants import (
+    BASE_URL,
+    MAX_NUM_TOKENS,
+    MODEL,
+)
+from synthetic_dataset_generator.pipelines.base import _get_llm
 from synthetic_dataset_generator.utils import get_preprocess_labels
 
 PROMPT_CREATION_PROMPT = """You are an AI assistant specialized in generating very precise text classification tasks for dataset creation.
@@ -69,23 +72,10 @@ def get_prompt_generator():
         "temperature": 0.8,
         "max_new_tokens": MAX_NUM_TOKENS,
     }
-    if BASE_URL:
-        llm = OpenAILLM(
-            model=MODEL,
-            base_url=BASE_URL,
-            api_key=_get_next_api_key(),
-            structured_output=structured_output,
-            generation_kwargs=generation_kwargs,
-        )
-    else:
-        generation_kwargs["do_sample"] = True
-        llm = InferenceEndpointsLLM(
-            api_key=_get_next_api_key(),
-            model_id=MODEL,
-            base_url=BASE_URL,
-            structured_output=structured_output,
-            generation_kwargs=generation_kwargs,
-        )
+    llm = _get_llm(
+        structured_output=structured_output,
+        generation_kwargs=generation_kwargs,
+    )
 
     prompt_generator = TextGeneration(
         llm=llm,
@@ -103,22 +93,7 @@ def get_textcat_generator(difficulty, clarity, temperature, is_sample):
         "max_new_tokens": 256 if is_sample else MAX_NUM_TOKENS,
         "top_p": 0.95,
     }
-    if BASE_URL:
-        llm = OpenAILLM(
-            model=MODEL,
-            base_url=BASE_URL,
-            api_key=_get_next_api_key(),
-            generation_kwargs=generation_kwargs,
-        )
-    else:
-        generation_kwargs["do_sample"] = True
-        llm = InferenceEndpointsLLM(
-            model_id=MODEL,
-            base_url=BASE_URL,
-            api_key=_get_next_api_key(),
-            generation_kwargs=generation_kwargs,
-        )
-
+    llm = _get_llm(generation_kwargs=generation_kwargs)
     textcat_generator = GenerateTextClassificationData(
         llm=llm,
         difficulty=None if difficulty == "mixed" else difficulty,
@@ -134,22 +109,7 @@ def get_labeller_generator(system_prompt, labels, multi_label):
         "temperature": 0.01,
         "max_new_tokens": MAX_NUM_TOKENS,
     }
-
-    if BASE_URL:
-        llm = OpenAILLM(
-            model=MODEL,
-            base_url=BASE_URL,
-            api_key=_get_next_api_key(),
-            generation_kwargs=generation_kwargs,
-        )
-    else:
-        llm = InferenceEndpointsLLM(
-            model_id=MODEL,
-            base_url=BASE_URL,
-            api_key=_get_next_api_key(),
-            generation_kwargs=generation_kwargs,
-        )
-
+    llm = _get_llm(generation_kwargs=generation_kwargs)
     labeller_generator = TextClassification(
         llm=llm,
         context=system_prompt,
