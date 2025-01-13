@@ -20,6 +20,7 @@ from synthetic_dataset_generator.apps.base import (
     validate_push_to_hub,
 )
 from synthetic_dataset_generator.constants import DEFAULT_BATCH_SIZE
+from synthetic_dataset_generator.pipelines.base import get_rewriten_prompts
 from synthetic_dataset_generator.pipelines.embeddings import (
     get_embeddings,
     get_sentence_embedding_dimensions,
@@ -35,6 +36,7 @@ from synthetic_dataset_generator.utils import (
     get_argilla_client,
     get_org_dropdown,
     get_preprocess_labels,
+    get_random_repo_name,
     swap_visibility,
 )
 
@@ -106,7 +108,7 @@ def generate_dataset(
     )
     updated_system_prompt = f"{system_prompt}. Optional labels: {', '.join(labels)}."
     if multi_label:
-        updated_system_prompt = f"{updated_system_prompt}. Only apply relevant labels. Applying less labels is better than applying too many labels."
+        updated_system_prompt = f"{updated_system_prompt}. Only apply relevant labels. Applying less labels is always better than applying too many labels."
     labeller_generator = get_labeller_generator(
         system_prompt=updated_system_prompt,
         labels=labels,
@@ -118,6 +120,7 @@ def generate_dataset(
     # create text classification data
     n_processed = 0
     textcat_results = []
+    rewritten_system_prompts = get_rewriten_prompts(system_prompt, num_rows)
     while n_processed < num_rows:
         progress(
             2 * 0.5 * n_processed / num_rows,
@@ -128,25 +131,24 @@ def generate_dataset(
         batch_size = min(batch_size, remaining_rows)
         inputs = []
         for _ in range(batch_size):
+            k = 1
             if multi_label:
                 num_labels = len(labels)
                 k = int(
                     random.betavariate(alpha=(num_labels - 1), beta=num_labels)
                     * num_labels
                 )
-            else:
-                k = 1
-
             sampled_labels = random.sample(labels, min(k, len(labels)))
             random.shuffle(sampled_labels)
             inputs.append(
                 {
-                    "task": f"{system_prompt}. The text represents the following categories: {', '.join(sampled_labels)}"
+                    "task": f"{random.choice(rewritten_system_prompts)}. The text represents the following categories: {', '.join(sampled_labels)}"
                 }
             )
         batch = list(textcat_generator.process(inputs=inputs))
         textcat_results.extend(batch[0])
         n_processed += batch_size
+        random.seed(a=random.randint(0, 2**32 - 1))
     for result in textcat_results:
         result["text"] = result["input_text"]
 
@@ -164,6 +166,7 @@ def generate_dataset(
         labels_batch = list(labeller_generator.process(inputs=batch))
         labeller_results.extend(labels_batch[0])
         n_processed += batch_size
+        random.seed(a=random.randint(0, 2**32 - 1))
     progress(
         1,
         total=total_steps,
@@ -178,26 +181,43 @@ def generate_dataset(
 
     dataframe = pd.DataFrame(distiset_results)
     if multi_label:
-        dataframe["labels"] = dataframe["labels"].apply(
-            lambda x: list(
-                set(
-                    [
+
+        def _validate_labels(x):
+            if isinstance(x, str):  # single label
+                return [x.lower().strip()]
+            elif isinstance(x, list):  # multiple labels
+                return list(
+                    set(
                         label.lower().strip()
-                        if (label is not None and label.lower().strip() in labels)
-                        else random.choice(labels)
                         for label in x
-                    ]
+                        if label.lower().strip() in labels
+                    )
                 )
-            )
-        )
+            else:
+                return list(set([random.choice(labels)]))
+
+        dataframe["labels"] = dataframe["labels"].apply(_validate_labels)
         dataframe = dataframe[dataframe["labels"].notna()]
     else:
+
+        def _validate_labels(x):
+            if isinstance(x, str) and x.lower().strip() in labels:
+                return x.lower().strip()
+            elif isinstance(x, list):
+                options = [
+                    label.lower().strip()
+                    for label in x
+                    if isinstance(label, str) and label.lower().strip() in labels
+                ]
+                if options:
+                    return random.choice(options)
+                else:
+                    return random.choice(labels)
+            else:
+                return random.choice(labels)
+
         dataframe = dataframe.rename(columns={"labels": "label"})
-        dataframe["label"] = dataframe["label"].apply(
-            lambda x: x.lower().strip()
-            if x and x.lower().strip() in labels
-            else random.choice(labels)
-        )
+        dataframe["label"] = dataframe["label"].apply(_validate_labels)
     dataframe = dataframe[dataframe["text"].notna()]
 
     progress(1.0, desc="Dataset created")
@@ -235,7 +255,7 @@ def push_dataset_to_hub(
         dataframe.reset_index(drop=True),
         features=features,
     )
-    dataset = combine_datasets(repo_id, dataset)
+    dataset = combine_datasets(repo_id, dataset, oauth_token)
     distiset = Distiset({"default": dataset})
     progress(0.9, desc="Pushing dataset")
     distiset.push_to_hub(
@@ -647,3 +667,4 @@ with gr.Blocks() as app:
 
     app.load(fn=swap_visibility, outputs=main_ui)
     app.load(fn=get_org_dropdown, outputs=[org_name])
+    app.load(fn=get_random_repo_name, outputs=[repo_name])

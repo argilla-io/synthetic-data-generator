@@ -77,10 +77,15 @@ def validate_push_to_hub(org_name, repo_name):
     return repo_id
 
 
-def combine_datasets(repo_id: str, dataset: Dataset) -> Dataset:
+def combine_datasets(
+    repo_id: str, dataset: Dataset, oauth_token: Union[OAuthToken, None]
+) -> Dataset:
     try:
         new_dataset = load_dataset(
-            repo_id, split="train", download_mode="force_redownload"
+            repo_id,
+            split="train",
+            download_mode="force_redownload",
+            token=oauth_token.token,
         )
         return concatenate_datasets([dataset, new_dataset])
     except Exception:

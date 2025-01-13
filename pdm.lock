@@ -5,7 +5,7 @@
 groups = ["default"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:a6d7f86e9a168e7eb78801faafa8a9ea13270310ee9c21a0e23aeab277d973a0"
+content_hash = "sha256:e95140895657d62ad438ff1815ddf1798abbb342ddd2649ae462620b8b3f5350"
 
 [[metadata.targets]]
 requires_python = ">=3.10,<3.13"
@@ -491,8 +491,11 @@ files = [
 
 [[package]]
 name = "distilabel"
-version = "1.4.1"
+version = "1.5.0"
 requires_python = ">=3.9"
+git = "https://github.com/argilla-io/distilabel.git"
+ref = "feat/add-magpie-support-llama-cpp-ollama"
+revision = "4e291e7bf1c27b734a683a3af1fefe58965d77d6"
 summary = "Distilabel is an AI Feedback (AIF) framework for building datasets with and for LLMs."
 groups = ["default"]
 dependencies = [
@@ -512,30 +515,30 @@ dependencies = [
     "typer>=0.9.0",
     "universal-pathlib>=0.2.2",
 ]
-files = [
-    {file = "distilabel-1.4.1-py3-none-any.whl", hash = "sha256:4643da7f3abae86a330d86d1498443ea56978e462e21ae3d106a4c6013386965"},
-    {file = "distilabel-1.4.1.tar.gz", hash = "sha256:0c373be234e8f2982ec7f940d9a95585b15306b6ab5315f5a6a45214d8f34006"},
-]
 
 [[package]]
 name = "distilabel"
-version = "1.4.1"
-extras = ["argilla", "hf-inference-endpoints", "instructor", "outlines"]
+version = "1.5.0"
+extras = ["argilla", "hf-inference-endpoints", "hf-transformers", "instructor", "llama-cpp", "ollama", "openai", "outlines"]
 requires_python = ">=3.9"
+git = "https://github.com/argilla-io/distilabel.git"
+ref = "feat/add-magpie-support-llama-cpp-ollama"
+revision = "4e291e7bf1c27b734a683a3af1fefe58965d77d6"
 summary = "Distilabel is an AI Feedback (AIF) framework for building datasets with and for LLMs."
 groups = ["default"]
 dependencies = [
     "argilla>=2.0.0",
-    "distilabel==1.4.1",
+    "distilabel @ git+https://github.com/argilla-io/distilabel.git@feat/add-magpie-support-llama-cpp-ollama",
     "huggingface-hub>=0.22.0",
     "instructor>=1.2.3",
     "ipython",
+    "llama-cpp-python>=0.2.0",
     "numba>=0.54.0",
+    "ollama>=0.1.7",
+    "openai>=1.0.0",
     "outlines>=0.0.40",
-]
-files = [
-    {file = "distilabel-1.4.1-py3-none-any.whl", hash = "sha256:4643da7f3abae86a330d86d1498443ea56978e462e21ae3d106a4c6013386965"},
-    {file = "distilabel-1.4.1.tar.gz", hash = "sha256:0c373be234e8f2982ec7f940d9a95585b15306b6ab5315f5a6a45214d8f34006"},
+    "torch>=2.0.0",
+    "transformers>=4.34.1",
 ]
 
 [[package]]
@@ -824,7 +827,7 @@ files = [
 
 [[package]]
 name = "httpx"
-version = "0.28.1"
+version = "0.27.2"
 requires_python = ">=3.8"
 summary = "The next generation HTTP client."
 groups = ["default"]
@@ -833,10 +836,11 @@ dependencies = [
     "certifi",
     "httpcore==1.*",
     "idna",
+    "sniffio",
 ]
 files = [
-    {file = "httpx-0.28.1-py3-none-any.whl", hash = "sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad"},
-    {file = "httpx-0.28.1.tar.gz", hash = "sha256:75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc"},
+    {file = "httpx-0.27.2-py3-none-any.whl", hash = "sha256:7bb2708e112d8fdd7829cd4243970f0c223274051cb35ee80c03301ee29a3df0"},
+    {file = "httpx-0.27.2.tar.gz", hash = "sha256:f7c2be1d2f3c3c3160d441802406b206c2b76f5947b11115e6df10c6c65e66c2"},
 ]
 
 [[package]]
@@ -1066,6 +1070,22 @@ groups = ["default"]
 files = [
     {file = "lark-1.2.2-py3-none-any.whl", hash = "sha256:c2276486b02f0f1b90be155f2c8ba4a8e194d42775786db622faccd652d8e80c"},
     {file = "lark-1.2.2.tar.gz", hash = "sha256:ca807d0162cd16cef15a8feecb862d7319e7a09bdb13aef927968e45040fed80"},
+]
+
+[[package]]
+name = "llama-cpp-python"
+version = "0.3.5"
+requires_python = ">=3.8"
+summary = "Python bindings for the llama.cpp library"
+groups = ["default"]
+dependencies = [
+    "diskcache>=5.6.1",
+    "jinja2>=2.11.3",
+    "numpy>=1.20.0",
+    "typing-extensions>=4.5.0",
+]
+files = [
+    {file = "llama_cpp_python-0.3.5.tar.gz", hash = "sha256:f5ce47499d53d3973e28ca5bdaf2dfe820163fa3fb67e3050f98e2e9b58d2cf6"},
 ]
 
 [[package]]
@@ -1536,6 +1556,21 @@ files = [
     {file = "nvidia_nvtx_cu12-12.4.127-py3-none-manylinux2014_aarch64.whl", hash = "sha256:7959ad635db13edf4fc65c06a6e9f9e55fc2f92596db928d169c0bb031e88ef3"},
     {file = "nvidia_nvtx_cu12-12.4.127-py3-none-manylinux2014_x86_64.whl", hash = "sha256:781e950d9b9f60d8241ccea575b32f5105a5baf4c2351cab5256a24869f12a1a"},
     {file = "nvidia_nvtx_cu12-12.4.127-py3-none-win_amd64.whl", hash = "sha256:641dccaaa1139f3ffb0d3164b4b84f9d253397e38246a4f2f36728b48566d485"},
+]
+
+[[package]]
+name = "ollama"
+version = "0.4.4"
+requires_python = "<4.0,>=3.8"
+summary = "The official Python client for Ollama."
+groups = ["default"]
+dependencies = [
+    "httpx<0.28.0,>=0.27.0",
+    "pydantic<3.0.0,>=2.9.0",
+]
+files = [
+    {file = "ollama-0.4.4-py3-none-any.whl", hash = "sha256:0f466e845e2205a1cbf5a2fef4640027b90beaa3b06c574426d8b6b17fd6e139"},
+    {file = "ollama-0.4.4.tar.gz", hash = "sha256:e1db064273c739babc2dde9ea84029c4a43415354741b6c50939ddd3dd0f7ffb"},
 ]
 
 [[package]]

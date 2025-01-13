@@ -2,6 +2,7 @@ from typing import Optional
 
 import distilabel
 import distilabel.distiset
+import gradio as gr
 from distilabel.utils.card.dataset_card import (
     DistilabelDatasetCard,
     size_categories_parser,
@@ -81,6 +82,24 @@ class CustomDistisetWithAdditionalTag(distilabel.distiset.Distiset):
                 dataset[0] if not isinstance(dataset, dict) else dataset["train"][0]
             )
 
+        columns = self["default"].column_names
+        columns = self["default"].column_names
+
+        if ("label" in columns and "text" in columns) or (
+            "labels" in columns and "text" in columns
+        ):
+            task_categories = ["text-classification"]
+        elif ("prompt" in columns and "completion" in columns) or (
+            "messages" in columns
+        ):
+            task_categories: list[str] = ["text-generation", "text2text-generation"]
+        else:
+            task_categories: list[str] = []
+            gr.Info(
+                f"No task categories found for dataset with columns: {columns}. "
+                "Please notify the distilabel team if you think this is an error."
+            )
+
         readme_metadata = {}
         if repo_id and token:
             readme_metadata = self._extract_readme_metadata(repo_id, token)
@@ -90,6 +109,7 @@ class CustomDistisetWithAdditionalTag(distilabel.distiset.Distiset):
             "size_categories": size_categories_parser(
                 max(len(dataset) for dataset in self.values())
             ),
+            "task_categories": task_categories,
             "tags": [
                 "synthetic",
                 "distilabel",

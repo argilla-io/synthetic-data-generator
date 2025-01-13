@@ -1,5 +1,5 @@
 from datasets import get_dataset_config_names, get_dataset_split_names
-from distilabel.llms import InferenceEndpointsLLM
+from distilabel.models import InferenceEndpointsLLM
 from distilabel.steps.tasks import (
     TextGeneration,
     UltraFeedback,
@@ -57,7 +57,7 @@ from datasets import load_dataset
 from distilabel.pipeline import Pipeline
 from distilabel.steps import LoadDataFromDicts
 from distilabel.steps.tasks import UltraFeedback
-from distilabel.llms import InferenceEndpointsLLM
+from distilabel.models import InferenceEndpointsLLM
 
 MODEL = "{MODEL}"
 BASE_URL = "{BASE_URL}"
@@ -97,7 +97,7 @@ import os
 from distilabel.pipeline import Pipeline
 from distilabel.steps import LoadDataFromDicts, CombineOutputs
 from distilabel.steps.tasks import UltraFeedback
-from distilabel.llms import InferenceEndpointsLLM
+from distilabel.models import InferenceEndpointsLLM
 
 MODEL = "{MODEL}"
 BASE_URL = "{BASE_URL}"
@@ -154,7 +154,7 @@ import os
 from distilabel.pipeline import Pipeline
 from distilabel.steps import LoadDataFromHub
 from distilabel.steps.tasks import TextGeneration
-from distilabel.llms import InferenceEndpointsLLM
+from distilabel.models import InferenceEndpointsLLM
 
 MODEL = "{MODEL}"
 BASE_URL = "{BASE_URL}"

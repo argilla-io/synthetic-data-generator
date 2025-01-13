@@ -2,7 +2,7 @@ import warnings
 
 import distilabel
 import distilabel.distiset
-from distilabel.llms import InferenceEndpointsLLM
+from distilabel.models import InferenceEndpointsLLM
 from pydantic import (
     ValidationError,
     model_validator,
@@ -55,4 +55,4 @@ class CustomInferenceEndpointsLLM(InferenceEndpointsLLM):
         )
 
 
-distilabel.llms.InferenceEndpointsLLM = CustomInferenceEndpointsLLM
+distilabel.models.llms.InferenceEndpointsLLM = CustomInferenceEndpointsLLM

@@ -25,12 +25,12 @@ from synthetic_dataset_generator.constants import (
     MODEL,
     SFT_AVAILABLE,
 )
+from synthetic_dataset_generator.pipelines.base import get_rewriten_prompts
 from synthetic_dataset_generator.pipelines.chat import (
     DEFAULT_DATASET_DESCRIPTIONS,
     generate_pipeline_code,
     get_magpie_generator,
     get_prompt_generator,
-    get_prompt_rewriter,
     get_response_generator,
 )
 from synthetic_dataset_generator.pipelines.embeddings import (
@@ -40,6 +40,7 @@ from synthetic_dataset_generator.pipelines.embeddings import (
 from synthetic_dataset_generator.utils import (
     get_argilla_client,
     get_org_dropdown,
+    get_random_repo_name,
     swap_visibility,
 )
 
@@ -106,7 +107,6 @@ def generate_dataset(
 ) -> pd.DataFrame:
     num_rows = test_max_num_rows(num_rows)
     progress(0.0, desc="(1/2) Generating instructions")
-    prompt_rewriter = get_prompt_rewriter()
     magpie_generator = get_magpie_generator(
         system_prompt, num_turns, temperature, is_sample
     )
@@ -117,14 +117,7 @@ def generate_dataset(
     batch_size = DEFAULT_BATCH_SIZE
 
     # create prompt rewrites
-    inputs = [
-        {
-            "instruction": f"Rewrite this prompt keeping the same structure but highlighting different aspects of the original without adding anything new. Original prompt: {system_prompt} Rewritten prompt: "
-        }
-        for i in range(int(num_rows / 50))
-    ]
-    batch = list(prompt_rewriter.process(inputs=inputs))
-    prompt_rewrites = [entry["generation"] for entry in batch[0]] + [system_prompt]
+    prompt_rewrites = get_rewriten_prompts(system_prompt, num_rows)
 
     # create instructions
     n_processed = 0
@@ -142,6 +135,7 @@ def generate_dataset(
         batch = list(magpie_generator.process(inputs=inputs))
         magpie_results.extend(batch[0])
         n_processed += batch_size
+        random.seed(a=random.randint(0, 2**32 - 1))
     progress(0.5, desc="(1/2) Generating instructions")
 
     # generate responses
@@ -158,6 +152,7 @@ def generate_dataset(
             responses = list(response_generator.process(inputs=batch))
             response_results.extend(responses[0])
             n_processed += batch_size
+            random.seed(a=random.randint(0, 2**32 - 1))
         for result in response_results:
             result["prompt"] = result["instruction"]
             result["completion"] = result["generation"]
@@ -178,6 +173,7 @@ def generate_dataset(
             responses = list(response_generator.process(inputs=batch))
             response_results.extend(responses[0])
             n_processed += batch_size
+            random.seed(a=random.randint(0, 2**32 - 1))
         for result in response_results:
             result["messages"].append(
                 {"role": "assistant", "content": result["generation"]}
@@ -236,7 +232,7 @@ def push_dataset_to_hub(
     dataframe = convert_dataframe_messages(dataframe)
     progress(0.7, desc="Creating dataset")
     dataset = Dataset.from_pandas(dataframe)
-    dataset = combine_datasets(repo_id, dataset)
+    dataset = combine_datasets(repo_id, dataset, oauth_token)
     progress(0.9, desc="Pushing dataset")
     distiset = Distiset({"default": dataset})
     distiset.push_to_hub(
@@ -600,4 +596,5 @@ with gr.Blocks() as app:
                 outputs=[dataset_description, system_prompt, num_turns, dataframe],
             )
             app.load(fn=get_org_dropdown, outputs=[org_name])
+        app.load(fn=get_random_repo_name, outputs=[repo_name])
         app.load(fn=swap_visibility, outputs=main_ui)
