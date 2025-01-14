@@ -516,7 +516,6 @@ with gr.Blocks() as app:
                             system_prompt=system_prompt.value,
                             num_turns=num_turns.value,
                             num_rows=num_rows.value,
-                            temperature=temperature.value,
                         )
                         pipeline_code = gr.Code(
                             value=code,
@@ -582,7 +581,7 @@ with gr.Blocks() as app:
                 outputs=[success_message],
             ).success(
                 fn=generate_pipeline_code,
-                inputs=[system_prompt, num_turns, num_rows, temperature],
+                inputs=[system_prompt, num_turns, num_rows],
                 outputs=[pipeline_code],
             ).success(
                 fn=show_pipeline_code_visibility,

@@ -735,7 +735,6 @@ with gr.Blocks() as app:
                         document_column=document_column.value,
                         retrieval_reranking=retrieval_reranking.value,
                         num_rows=num_rows.value,
-                        temperature=temperature.value,
                     )
                     pipeline_code = gr.Code(
                         value=code,
@@ -873,7 +872,6 @@ with gr.Blocks() as app:
             document_column,
             retrieval_reranking,
             num_rows,
-            temperature,
         ],
         outputs=[pipeline_code],
     ).success(

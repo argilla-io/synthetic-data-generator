@@ -227,7 +227,7 @@ def get_response_generator(system_prompt, num_turns, temperature, is_sample):
     return response_generator
 
 
-def generate_pipeline_code(system_prompt, num_turns, num_rows, temperature):
+def generate_pipeline_code(system_prompt, num_turns, num_rows):
     input_mappings = _get_output_mappings(num_turns)
 
     code = f"""

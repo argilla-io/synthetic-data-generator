@@ -559,7 +559,6 @@ with gr.Blocks() as app:
                         labels=labels.value,
                         num_labels=len(labels.value) if multi_label.value else 1,
                         num_rows=num_rows.value,
-                        temperature=temperature.value,
                     )
                     pipeline_code = gr.Code(
                         value=code,
@@ -644,7 +643,6 @@ with gr.Blocks() as app:
             labels,
             multi_label,
             num_rows,
-            temperature,
         ],
         outputs=[pipeline_code],
     ).success(
