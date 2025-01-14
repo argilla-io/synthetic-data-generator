@@ -1,13 +1,12 @@
 from typing import List
 
 from datasets import get_dataset_config_names, get_dataset_split_names
-from distilabel.llms import InferenceEndpointsLLM, OpenAILLM
 from distilabel.steps.tasks import (
     GenerateSentencePair,
     TextGeneration,
 )
 
-from synthetic_dataset_generator.constants import BASE_URL, MAX_NUM_TOKENS, MODEL
+from synthetic_dataset_generator.constants import MAX_NUM_TOKENS
 from synthetic_dataset_generator.pipelines.base import _get_llm, _get_llm_class
 
 DEFAULT_DATASET_DESCRIPTIONS = [
