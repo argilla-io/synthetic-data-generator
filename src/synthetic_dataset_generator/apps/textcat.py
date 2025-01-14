@@ -20,7 +20,7 @@ from synthetic_dataset_generator.apps.base import (
     validate_push_to_hub,
 )
 from synthetic_dataset_generator.constants import DEFAULT_BATCH_SIZE
-from synthetic_dataset_generator.pipelines.base import get_rewriten_prompts
+from synthetic_dataset_generator.pipelines.base import get_rewritten_prompts
 from synthetic_dataset_generator.pipelines.embeddings import (
     get_embeddings,
     get_sentence_embedding_dimensions,
@@ -120,7 +120,7 @@ def generate_dataset(
     # create text classification data
     n_processed = 0
     textcat_results = []
-    rewritten_system_prompts = get_rewriten_prompts(system_prompt, num_rows)
+    rewritten_system_prompts = get_rewritten_prompts(system_prompt, num_rows)
     while n_processed < num_rows:
         progress(
             2 * 0.5 * n_processed / num_rows,

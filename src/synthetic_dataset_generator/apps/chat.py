@@ -25,7 +25,7 @@ from synthetic_dataset_generator.constants import (
     MODEL,
     SFT_AVAILABLE,
 )
-from synthetic_dataset_generator.pipelines.base import get_rewriten_prompts
+from synthetic_dataset_generator.pipelines.base import get_rewritten_prompts
 from synthetic_dataset_generator.pipelines.chat import (
     DEFAULT_DATASET_DESCRIPTIONS,
     generate_pipeline_code,
@@ -117,7 +117,7 @@ def generate_dataset(
     batch_size = DEFAULT_BATCH_SIZE
 
     # create prompt rewrites
-    prompt_rewrites = get_rewriten_prompts(system_prompt, num_rows)
+    prompt_rewrites = get_rewritten_prompts(system_prompt, num_rows)
 
     # create instructions
     n_processed = 0

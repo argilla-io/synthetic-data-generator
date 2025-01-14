@@ -93,6 +93,16 @@ class CustomDistisetWithAdditionalTag(distilabel.distiset.Distiset):
             "messages" in columns
         ):
             task_categories: list[str] = ["text-generation", "text2text-generation"]
+        elif "context" in columns and "query" in columns and "response" in columns:
+            task_categories: list[str] = [
+                "text-generation",
+                "text2text-generation",
+                "text-retrieval",
+            ]
+            if (
+                "positive_retrieval" in columns and "negative_retrieval" in columns
+            ) or ("positive_reranking" in columns and "negative_reranking" in columns):
+                task_categories.append("sentence-similarity")
         else:
             task_categories: list[str] = []
             gr.Info(

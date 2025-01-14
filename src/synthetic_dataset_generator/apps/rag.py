@@ -28,6 +28,7 @@ from synthetic_dataset_generator.apps.base import (
     validate_push_to_hub,
 )
 from synthetic_dataset_generator.constants import DEFAULT_BATCH_SIZE
+from synthetic_dataset_generator.pipelines.base import get_rewritten_prompts
 from synthetic_dataset_generator.pipelines.embeddings import (
     get_embeddings,
     get_sentence_embedding_dimensions,
@@ -44,6 +45,7 @@ from synthetic_dataset_generator.utils import (
     column_to_list,
     get_argilla_client,
     get_org_dropdown,
+    get_random_repo_name,
     swap_visibility,
 )
 
@@ -215,6 +217,7 @@ def generate_dataset(
     if input_type == "prompt-input":
         n_processed = 0
         chunk_results = []
+        rewritten_system_prompts = get_rewritten_prompts(system_prompt, num_rows)
         while n_processed < num_rows:
             progress(
                 step_progress * n_processed / num_rows,
@@ -223,10 +226,14 @@ def generate_dataset(
             )
             remaining_rows = num_rows - n_processed
             batch_size = min(batch_size, remaining_rows)
-            inputs = [{"task": system_prompt} for _ in range(batch_size)]
+            inputs = [
+                {"task": random.choice(rewritten_system_prompts)}
+                for _ in range(batch_size)
+            ]
             chunks = list(chunk_generator.process(inputs=inputs))
             chunk_results.extend(chunks[0])
             n_processed += batch_size
+            random.seed(a=random.randint(0, 2**32 - 1))
         document_data = [chunk["generation"] for chunk in chunk_results]
         progress(step_progress, desc="Generating chunks")
 
@@ -363,7 +370,7 @@ def push_dataset_to_hub(
 ):
     repo_id = validate_push_to_hub(org_name, repo_name)
     dataset = Dataset.from_pandas(dataframe)
-    dataset = combine_datasets(repo_id, dataset)
+    dataset = combine_datasets(repo_id, dataset, oauth_token)
     distiset = Distiset({"default": dataset})
     distiset.push_to_hub(
         repo_id=repo_id,
@@ -384,6 +391,7 @@ def push_dataset(
     input_type: str,
     system_prompt: str,
     document_column: str,
+    retrieval_reranking: list[str],
     num_rows: int,
     temperature: float,
     pipeline_code: str,
@@ -722,11 +730,12 @@ with gr.Blocks() as app:
                     code = generate_pipeline_code(
                         repo_id=search_in.value,
                         file_paths=file_in.value,
+                        input_type=input_type.value,
+                        system_prompt=system_prompt.value,
                         document_column=document_column.value,
                         retrieval_reranking=retrieval_reranking.value,
                         num_rows=num_rows.value,
                         temperature=temperature.value,
-                        input_type=input_type.value,
                     )
                     pipeline_code = gr.Code(
                         value=code,
@@ -889,3 +898,4 @@ with gr.Blocks() as app:
 
     app.load(fn=swap_visibility, outputs=main_ui)
     app.load(fn=get_org_dropdown, outputs=[org_name])
+    app.load(fn=get_random_repo_name, outputs=[repo_name])

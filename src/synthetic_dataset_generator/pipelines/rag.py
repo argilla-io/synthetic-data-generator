@@ -8,7 +8,7 @@ from distilabel.steps.tasks import (
 )
 
 from synthetic_dataset_generator.constants import BASE_URL, MAX_NUM_TOKENS, MODEL
-from synthetic_dataset_generator.pipelines.base import _get_next_api_key
+from synthetic_dataset_generator.pipelines.base import _get_llm, _get_llm_class
 
 DEFAULT_DATASET_DESCRIPTIONS = [
     "A dataset to retrieve information from legal documents.",
@@ -76,24 +76,8 @@ def get_prompt_generator():
         "temperature": 0.8,
         "max_new_tokens": MAX_NUM_TOKENS,
     }
-    if BASE_URL:
-        llm = OpenAILLM(
-            model=MODEL,
-            base_url=BASE_URL,
-            api_key=_get_next_api_key(),
-            generation_kwargs=generation_kwargs,
-        )
-    else:
-        generation_kwargs["do_sample"] = True
-        llm = InferenceEndpointsLLM(
-            api_key=_get_next_api_key(),
-            model_id=MODEL,
-            base_url=BASE_URL,
-            generation_kwargs=generation_kwargs,
-        )
-
     text_generator = TextGeneration(
-        llm=llm,
+        llm=_get_llm(generation_kwargs=generation_kwargs),
         system_prompt=PROMPT_CREATION_PROMPT,
         use_system_prompt=True,
     )
@@ -107,24 +91,8 @@ def get_chunks_generator(temperature, is_sample):
         "temperature": temperature,
         "max_new_tokens": MAX_NUM_TOKENS if is_sample else 256,
     }
-    if BASE_URL:
-        llm = OpenAILLM(
-            model=MODEL,
-            base_url=BASE_URL,
-            api_key=_get_next_api_key(),
-            generation_kwargs=generation_kwargs,
-        )
-    else:
-        generation_kwargs["do_sample"] = True
-        llm = InferenceEndpointsLLM(
-            api_key=_get_next_api_key(),
-            model_id=MODEL,
-            base_url=BASE_URL,
-            generation_kwargs=generation_kwargs,
-        )
-
     text_generator = TextGeneration(
-        llm=llm,
+        llm=_get_llm(generation_kwargs=generation_kwargs),
         system_prompt=SYSTEM_PROMPT_CHUCKS,
         template=CHUNKS_TEMPLATE,
         columns=["task"],
@@ -140,24 +108,8 @@ def get_sentence_pair_generator(action, triplet, temperature, is_sample):
         "temperature": temperature,
         "max_new_tokens": 256 if is_sample else MAX_NUM_TOKENS,
     }
-    if BASE_URL:
-        llm = OpenAILLM(
-            model=MODEL,
-            base_url=BASE_URL,
-            api_key=_get_next_api_key(),
-            generation_kwargs=generation_kwargs,
-        )
-    else:
-        generation_kwargs["do_sample"] = True
-        llm = InferenceEndpointsLLM(
-            model_id=MODEL,
-            base_url=BASE_URL,
-            api_key=_get_next_api_key(),
-            generation_kwargs=generation_kwargs,
-        )
-
     sentence_pair_generator = GenerateSentencePair(
-        llm=llm,
+        llm=_get_llm(generation_kwargs=generation_kwargs),
         triplet=triplet,
         action=action,
         hard_negative=True,
@@ -171,24 +123,8 @@ def get_response_generator(temperature, is_sample):
         "temperature": temperature,
         "max_new_tokens": MAX_NUM_TOKENS if is_sample else 256,
     }
-    if BASE_URL:
-        llm = OpenAILLM(
-            model=MODEL,
-            base_url=BASE_URL,
-            api_key=_get_next_api_key(),
-            generation_kwargs=generation_kwargs,
-        )
-    else:
-        generation_kwargs["do_sample"] = True
-        llm = InferenceEndpointsLLM(
-            api_key=_get_next_api_key(),
-            model_id=MODEL,
-            base_url=BASE_URL,
-            generation_kwargs=generation_kwargs,
-        )
-
     text_generator = TextGeneration(
-        llm=llm,
+        llm=_get_llm(generation_kwargs=generation_kwargs),
         system_prompt=SYSTEM_PROMPT_RAG,
         template=RAG_TEMPLATE,
         columns=["context", "question"],
@@ -203,10 +139,10 @@ def generate_pipeline_code(
     repo_id: str,
     file_paths: List[str],
     input_type: str,
+    system_prompt: str,
     document_column: str,
     retrieval_reranking: list[str],
     num_rows: int = 10,
-    temperature: float = 0.9,
 ) -> str:
     MODEL_ARG = "model_id" if BASE_URL else "model"
     MODEL_CLASS = "InferenceEndpointsLLM" if BASE_URL else "OpenAILLM"
@@ -222,9 +158,9 @@ def generate_pipeline_code(
 # Requirements: `pip install distilabel[hf-inference-endpoints]`
 import os
 import random
-from distilabel.llms import InferenceEndpointsLLM
+from distilabel.llms import {MODEL_CLASS}
 from distilabel.pipeline import Pipeline
-from distilabel.steps import KeepColumns{", LoadDataFromDicts" if input_type == "file-type" else ""}{", LoadDataFromHub" if input_type == "dataset_input" else ""}
+from distilabel.steps import KeepColumns{", LoadDataFromDicts" if input_type == "file-input" else ""}{", LoadDataFromHub" if input_type == "dataset-input" else ""}
 from distilabel.steps.tasks import GenerateSentencePair, TextGeneration {", GenerateTextRetrievalData" if input_type == "prompt-type" else ""}
 MODEL = "{MODEL}"
 BASE_URL = "{BASE_URL}"
@@ -255,20 +191,14 @@ data = process_and_chunk_files(files=[{file_paths}])
 
     if input_type == "prompt-type":
         pipeline = f"""
-with Pipeline(name="textcat") as pipeline:
+SYSTEM_PROMPT =  {system_prompt}      
 
-    task_generator = LoadDataFromDicts(data=[{{"task": TEXT_CLASSIFICATION_TASK}}])
+with Pipeline(name="rag") as pipeline:
 
-    textcat_generation = GenerateTextClassificationData(
-        llm={MODEL_CLASS}(
-            {MODEL_ARG}=MODEL,
-            base_url=BASE_URL,
-            api_key=os.environ["API_KEY"],
-            generation_kwargs={{
-                "temperature": {temperature},
-                "max_new_tokens": {MAX_NUM_TOKENS},
-                "top_p": 0.95,
-            }},
+    task_generator = LoadDataFromDicts(data=[{{"task": SYSTEM_PROMPT}}])
+
+    sentence_similarity_generation = GenerateTextRetrievalData(
+        llm={_get_llm_class()}.from_dict({_get_llm().model_dump()}),
         ),
         seed=random.randint(0, 2**32 - 1),
         query_type="common",
@@ -309,28 +239,14 @@ with Pipeline(name="rag") as pipeline:
         triplet={True if retrieval else False},
         hard_negative=True,
         action="query",
-        llm={MODEL_CLASS}(
-            {MODEL_ARG}=MODEL,
-            base_url=BASE_URL,
-            api_key=os.environ["API_KEY"],
-            generation_kwargs={{
-                "temperature": {temperature},
-                "max_new_tokens": {MAX_NUM_TOKENS},
-            }},
+        llm={_get_llm_class()}.from_dict({_get_llm().model_dump()}),
         ),
         output_mappings={{"positive": "positive_retrieval", "negative": "negative_retrieval"}},
         input_batch_size=10,
     )
 
     generate_response = TextGeneration(
-        llm={MODEL_CLASS}(
-            {MODEL_ARG}=MODEL,
-            base_url=BASE_URL,
-            api_key=os.environ["API_KEY"],
-            generation_kwargs={{
-                "temperature": {temperature},
-                "max_new_tokens": {MAX_NUM_TOKENS},
-            }},
+        llm={_get_llm_class()}.from_dict({_get_llm().model_dump()}),
         ),
         system_prompt=SYSTEM_PROMPT,
         template=RAG_TEMPLATE,
@@ -347,14 +263,7 @@ with Pipeline(name="rag") as pipeline:
         triplet=True,
         hard_negative=True,
         action="semantically-similar",
-        llm={MODEL_CLASS}(
-            {MODEL_ARG}=MODEL,
-            base_url=BASE_URL,
-            api_key=os.environ["API_KEY"],
-            generation_kwargs={{
-                "temperature": {temperature},
-                "max_new_tokens": {MAX_NUM_TOKENS},
-            }},
+        llm={_get_llm_class()}.from_dict({_get_llm().model_dump()}),
         ),
         input_batch_size=10,
         output_mappings={{"positive": "positive_reranking", "negative": "negative_reranking"}},
@@ -365,29 +274,38 @@ with Pipeline(name="rag") as pipeline:
     if input_type == "prompt-type":
         if reranking:
             pipeline += """
-    task_generator.connect(textcat_generation)
+    task_generator.connect(sentence_similarity_generation)
     textcat_generation.connect(keep_columns)
     keep_columns.connect(generate_retrieval_pairs, generate_reranking_pairs)
     generate_retrieval_pairs.connect(generate_response)
     """
         else:
             pipeline += """
-    task_generator.connect(textcat_generation)
+    task_generator.connect(sentence_similarity_generation)
     textcat_generation.connect(keep_columns)
     keep_columns.connect(generate_retrieval_pairs)
     generate_retrieval_pairs.connect(generate_response)
+    
+    if __name__ == "__main__":
+        distiset = pipeline.run()
     """
 
     else:
         if reranking:
             pipeline += """
-    load_dataset.connect(generate_retrieval_pairs, generate_reranking_pairs)
+    load_the_dataset.connect(generate_retrieval_pairs, generate_reranking_pairs)
     generate_retrieval_pairs.connect(generate_response)
+    
+    if __name__ == "__main__":
+        distiset = pipeline.run()
     """
         else:
             pipeline += """
-    load_dataset.connect(generate_retrieval_pairs)
+    load_the_dataset.connect(generate_retrieval_pairs)
     generate_retrieval_pairs.connect(generate_response)
+    
+    if __name__ == "__main__":
+        distiset = pipeline.run()
     """
 
     return base_code + pipeline

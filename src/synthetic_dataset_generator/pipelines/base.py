@@ -39,7 +39,7 @@ def _get_prompt_rewriter():
     return prompt_rewriter
 
 
-def get_rewriten_prompts(prompt: str, num_rows: int):
+def get_rewritten_prompts(prompt: str, num_rows: int):
     prompt_rewriter = _get_prompt_rewriter()
     # create prompt rewrites
     inputs = [
