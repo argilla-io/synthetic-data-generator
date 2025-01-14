@@ -18,13 +18,14 @@ readme = "README.md"
 license = {text = "Apache 2"}
 
 dependencies = [
+    "argilla>=2.4.0,<3.0.0",
     "distilabel[argilla,hf-inference-endpoints,hf-transformers,instructor,llama-cpp,ollama,openai,outlines,vllm] @ git+https://github.com/argilla-io/distilabel.git@develop",
     "gradio[oauth]>=5.4.0,<6.0.0",
-    "transformers>=4.44.2,<5.0.0",
-    "sentence-transformers>=3.2.0,<4.0.0",
-    "model2vec>=0.2.4,<1.0.0",
     "gradio-huggingfacehub-search>=0.0.12,<1.0.0",
-    "argilla>=2.4.0,<3.0.0",
+    "model2vec>=0.2.4,<1.0.0",
+    "pydantic>=2.10.5,<3.0.0",
+    "sentence-transformers>=3.2.0,<4.0.0",
+    "transformers>=4.44.2,<5.0.0",
     "unstructured[md]>=0.16.0,<1.0.0",
 ]
 
