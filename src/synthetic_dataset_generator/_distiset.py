@@ -93,7 +93,7 @@ class CustomDistisetWithAdditionalTag(distilabel.distiset.Distiset):
             "messages" in columns
         ):
             task_categories: list[str] = ["text-generation", "text2text-generation"]
-        elif "context" in columns and "query" in columns and "response" in columns:
+        elif "context" in columns and "question" in columns and "response" in columns:
             task_categories: list[str] = [
                 "text-generation",
                 "text2text-generation",

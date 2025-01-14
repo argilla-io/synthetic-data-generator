@@ -144,8 +144,6 @@ def generate_pipeline_code(
     retrieval_reranking: list[str],
     num_rows: int = 10,
 ) -> str:
-    MODEL_ARG = "model_id" if BASE_URL else "model"
-    MODEL_CLASS = "InferenceEndpointsLLM" if BASE_URL else "OpenAILLM"
     if repo_id is None:
         subset = "default"
         split = "train"
@@ -158,12 +156,11 @@ def generate_pipeline_code(
 # Requirements: `pip install distilabel[hf-inference-endpoints]`
 import os
 import random
-from distilabel.llms import {MODEL_CLASS}
+from distilabel.models import {_get_llm_class()}
 from distilabel.pipeline import Pipeline
 from distilabel.steps import KeepColumns{", LoadDataFromDicts" if input_type == "file-input" else ""}{", LoadDataFromHub" if input_type == "dataset-input" else ""}
 from distilabel.steps.tasks import GenerateSentencePair, TextGeneration {", GenerateTextRetrievalData" if input_type == "prompt-type" else ""}
-MODEL = "{MODEL}"
-BASE_URL = "{BASE_URL}"
+
 SYSTEM_PROMPT_RAG = '''
 You are a helpful AI assistant. Your task is to answer the following question based on the provided document.
 
@@ -179,11 +176,8 @@ Question: {{ question }}
 
 Please provide a clear and concise answer to the question based on the information in the document:
 '''.rstrip()
-
-os.environ["API_KEY"] = (
-    "hf_xxx"  # https://huggingface.co/settings/tokens/new?ownUserPermissions=repo.content.read&ownUserPermissions=repo.write&globalPermissions=inference.serverless.write&canReadGatedRepos=true&tokenType=fineGrained
-)
 """
+
     if input_type == "file_type":
         base_code += f"""
 data = process_and_chunk_files(files=[{file_paths}])
@@ -191,14 +185,14 @@ data = process_and_chunk_files(files=[{file_paths}])
 
     if input_type == "prompt-type":
         pipeline = f"""
-SYSTEM_PROMPT =  {system_prompt}      
+TASK_SYSTEM_PROMPT =  {system_prompt}      
 
 with Pipeline(name="rag") as pipeline:
 
-    task_generator = LoadDataFromDicts(data=[{{"task": SYSTEM_PROMPT}}])
+    task_generator = LoadDataFromDicts(data=[{{"task": TASK_SYSTEM_PROMPT}}])
 
     sentence_similarity_generation = GenerateTextRetrievalData(
-        llm={_get_llm_class()}.from_dict({_get_llm().model_dump()}),
+        llm={_get_llm_class()}.from_dict({_get_llm().model_dump()}
         ),
         seed=random.randint(0, 2**32 - 1),
         query_type="common",
@@ -214,7 +208,7 @@ with Pipeline(name="rag") as pipeline:
         """
 
     else:
-        pipeline = """"
+        pipeline = """
 with Pipeline(name="rag") as pipeline:
 """
     if input_type == "file_type":
@@ -239,16 +233,16 @@ with Pipeline(name="rag") as pipeline:
         triplet={True if retrieval else False},
         hard_negative=True,
         action="query",
-        llm={_get_llm_class()}.from_dict({_get_llm().model_dump()}),
+        llm={_get_llm_class()}.from_dict({_get_llm().model_dump()}
         ),
         output_mappings={{"positive": "positive_retrieval", "negative": "negative_retrieval"}},
         input_batch_size=10,
     )
 
     generate_response = TextGeneration(
-        llm={_get_llm_class()}.from_dict({_get_llm().model_dump()}),
+        llm={_get_llm_class()}.from_dict({_get_llm().model_dump()}
         ),
-        system_prompt=SYSTEM_PROMPT,
+        system_prompt=SYSTEM_PROMPT_RAG,
         template=RAG_TEMPLATE,
         columns=["{document_column}", "question"],
         use_system_prompt=True,
@@ -263,7 +257,7 @@ with Pipeline(name="rag") as pipeline:
         triplet=True,
         hard_negative=True,
         action="semantically-similar",
-        llm={_get_llm_class()}.from_dict({_get_llm().model_dump()}),
+        llm={_get_llm_class()}.from_dict({_get_llm().model_dump()}
         ),
         input_batch_size=10,
         output_mappings={{"positive": "positive_reranking", "negative": "negative_reranking"}},
