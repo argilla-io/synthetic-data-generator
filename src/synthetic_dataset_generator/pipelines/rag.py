@@ -15,13 +15,13 @@ DEFAULT_DATASET_DESCRIPTIONS = [
     "A dataset to search for economical techniques.",
 ]
 
-PROMPT_CREATION_PROMPT = """"You are an AI assistant specialized in generating very precise retrieval augmented generation tasks for dataset creation.
+PROMPT_CREATION_PROMPT = """
 
-Your should write a prompt following a the dataset description. Respond with the prompt and nothing else.
+You are an AI assistant specialized in designing retrieval-augmented generation (RAG) tasks for dataset creation.
 
-The prompt should follow the same style and structure as the following example prompts.
+Your task is to generate a well-structured and descriptive prompt based on the provided dataset description and company context. Respond with only the generated prompt and nothing else.
 
-Make sure to always include all of the detailed information from the description and the context of the company that is provided.
+The prompt should closely follow the style and structure of the example prompts below. Ensure that you include all relevant details from the dataset description and reflect the company context accurately.
 
 Description: A dataset to retrieve information from legal documents.
 Output: A dataset to retrieve information from a collection of legal documents related to the US law system and the status of contracts.
@@ -29,13 +29,13 @@ Output: A dataset to retrieve information from a collection of legal documents r
 Description: A dataset to search for economical techniques.
 Output: A dataset to search for economical techniques and strategies for the European market and the financial sector.
 
-Description: A dataset covering FAQ questions for a tech company called Argilla that sells technology datasets within the open source Natural Language Processing space.
-Output: A dataset covering FAQ questions for a tech company called Argilla that sells technology datasets within the open source Natural Language Processing space.
+Description: A dataset covering FAQ questions for a tech company called Argilla that sells technology datasets within the open-source Natural Language Processing space.
+Output: A dataset covering FAQ questions for a tech company called Argilla that sells technology datasets within the open-source Natural Language Processing space.
 
 Description:
 """
 
-SYSTEM_PROMPT_CHUCKS = """"
+SYSTEM_PROMPT_CHUCKS = """
 You are a helpful and knowledgeable AI assistant. Your task is to generate concise and informative text chunks relevant to the given retrieval task.
 
 Ensure the text chunks are:
@@ -54,7 +54,7 @@ Ensure the chunks are clear, accurate, and directly relevant to the task.
 Use your general knowledge to create informative and precise outputs.
 """
 
-SYSTEM_PROMPT_RAG = """"
+SYSTEM_PROMPT_RAG = """
 You are a helpful AI assistant. Your task is to answer the following question based on the provided document.
 
 If the answer is not explicitly stated in the document, use your knowledge to provide the most relevant and accurate answer possible.

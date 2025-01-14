@@ -28,4 +28,4 @@ demo = TabbedInterface(
     css=css,
     title=image,
     theme=theme,
-) # TODO: Remove the rag_app
+)

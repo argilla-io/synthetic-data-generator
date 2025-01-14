@@ -354,7 +354,7 @@ def generate_sample_dataset(
         document_column=document_column,
         retrieval=retrieval,
         reranking=reranking,
-        num_rows=1,  # TODO: 10
+        num_rows=10,
         is_sample=True,
     )
     return dataframe
@@ -698,7 +698,7 @@ with gr.Blocks() as app:
                 )
                 num_rows = gr.Number(
                     label="Number of rows",
-                    value=1,  # TODO: 10
+                    value=10,
                     interactive=True,
                     scale=1,
                 )
@@ -824,46 +824,46 @@ with gr.Blocks() as app:
     )
 
     btn_push_to_hub.click(
-    #     fn=validate_argilla_user_workspace_dataset,
-    #     inputs=[repo_name],
-    #     outputs=[success_message],
-    #     show_progress=True,
-    # ).then(
-    #     fn=validate_push_to_hub,
-    #     inputs=[org_name, repo_name],
-    #     outputs=[success_message],
-    #     show_progress=True,
-    # ).success(
-    #     fn=hide_success_message,
-    #     outputs=[success_message],
-    #     show_progress=True,
-    # ).success(
-    #     fn=hide_pipeline_code_visibility,
-    #     inputs=[],
-    #     outputs=[pipeline_code_ui],
-    # ).success(
-    #     fn=push_dataset,
-    #     inputs=[
-    #         org_name,
-    #         repo_name,
-    #         private,
-    #         search_in,
-    #         file_in,
-    #         input_type,
-    #         system_prompt,
-    #         document_column,
-    #         retrieval_reranking,
-    #         num_rows,
-    #         temperature,
-    #         pipeline_code,
-    #     ],
-    #     outputs=[success_message],
-    #     show_progress=True,
-    # ).success(
-    #     fn=show_success_message,
-    #     inputs=[org_name, repo_name],
-    #     outputs=[success_message],
-    # ).success(
+        fn=validate_argilla_user_workspace_dataset,
+        inputs=[repo_name],
+        outputs=[success_message],
+        show_progress=True,
+    ).then(
+        fn=validate_push_to_hub,
+        inputs=[org_name, repo_name],
+        outputs=[success_message],
+        show_progress=True,
+    ).success(
+        fn=hide_success_message,
+        outputs=[success_message],
+        show_progress=True,
+    ).success(
+        fn=hide_pipeline_code_visibility,
+        inputs=[],
+        outputs=[pipeline_code_ui],
+    ).success(
+        fn=push_dataset,
+        inputs=[
+            org_name,
+            repo_name,
+            private,
+            search_in,
+            file_in,
+            input_type,
+            system_prompt,
+            document_column,
+            retrieval_reranking,
+            num_rows,
+            temperature,
+            pipeline_code,
+        ],
+        outputs=[success_message],
+        show_progress=True,
+    ).success(
+        fn=show_success_message,
+        inputs=[org_name, repo_name],
+        outputs=[success_message],
+    ).success(
         fn=generate_pipeline_code,
         inputs=[
             search_in,
