@@ -1,6 +1,6 @@
 from synthetic_dataset_generator._tabbedinterface import TabbedInterface
 
-from synthetic_dataset_generator.apps.eval import app as eval_app
+# from synthetic_dataset_generator.apps.eval import app as eval_app
 from synthetic_dataset_generator.apps.rag import app as rag_app
 from synthetic_dataset_generator.apps.about import app as about_app
 from synthetic_dataset_generator.apps.chat import app as chat_app

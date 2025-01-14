@@ -135,7 +135,7 @@ def get_chunks_generator(temperature, is_sample):
     return text_generator
 
 
-def get_sentence_pair_generator(action, triplet, hard_negative, temperature, is_sample):
+def get_sentence_pair_generator(action, triplet, temperature, is_sample):
     generation_kwargs = {
         "temperature": temperature,
         "max_new_tokens": 256 if is_sample else MAX_NUM_TOKENS,
@@ -160,7 +160,7 @@ def get_sentence_pair_generator(action, triplet, hard_negative, temperature, is_
         llm=llm,
         triplet=triplet,
         action=action,
-        hard_negative=hard_negative,
+        hard_negative=True,
     )
     sentence_pair_generator.load()
     return sentence_pair_generator
@@ -204,9 +204,7 @@ def generate_pipeline_code(
     file_paths: List[str],
     input_type: str,
     document_column: str,
-    hard_negative: bool = False,
-    retrieval: bool = False,
-    reranking: bool = False,
+    retrieval_reranking: list[str],
     num_rows: int = 10,
     temperature: float = 0.9,
 ) -> str:
@@ -218,6 +216,8 @@ def generate_pipeline_code(
     else:
         subset = get_dataset_config_names(repo_id)[0]
         split = get_dataset_split_names(repo_id, subset)[0]
+    retrieval = "Retrieval" in retrieval_reranking
+    reranking = "Reranking" in retrieval_reranking
     base_code = f"""
 # Requirements: `pip install distilabel[hf-inference-endpoints]`
 import os
@@ -307,7 +307,7 @@ with Pipeline(name="rag") as pipeline:
     pipeline += f"""
     generate_retrieval_pairs = GenerateSentencePair(
         triplet={True if retrieval else False},
-        hard_negative={hard_negative},
+        hard_negative=True,
         action="query",
         llm={MODEL_CLASS}(
             {MODEL_ARG}=MODEL,
@@ -345,7 +345,7 @@ with Pipeline(name="rag") as pipeline:
         pipeline += f"""
     generate_reranking_pairs = GenerateSentencePair(
         triplet=True,
-        hard_negative={hard_negative}
+        hard_negative=True,
         action="semantically-similar",
         llm={MODEL_CLASS}(
             {MODEL_ARG}=MODEL,

@@ -170,7 +170,6 @@ def generate_dataset(
     dataframe: pd.DataFrame,
     system_prompt: str,
     document_column: str,
-    hard_negative: bool = False,
     retrieval: bool = False,
     reranking: bool = False,
     num_rows: int = 10,
@@ -194,7 +193,6 @@ def generate_dataset(
     retrieval_generator = get_sentence_pair_generator(
         action="query",
         triplet=True if retrieval else False,
-        hard_negative=hard_negative,
         temperature=temperature,
         is_sample=is_sample,
     )
@@ -205,7 +203,6 @@ def generate_dataset(
         reranking_generator = get_sentence_pair_generator(
             action="semantically-similar",
             triplet=True,
-            hard_negative=hard_negative,
             temperature=temperature,
             is_sample=is_sample,
         )
@@ -252,7 +249,6 @@ def generate_dataset(
         retrieval_results.extend(questions[0])
         n_processed += batch_size
     for result in retrieval_results:
-        result["context"] = result["anchor"]
         result["context"] = result["anchor"]
         if retrieval:
             result["question"] = result["positive"]
@@ -306,7 +302,7 @@ def generate_dataset(
     # create distiset
     distiset_results = []
     source_results = reranking_results if reranking else response_results
-    base_keys = ["context", "question", "response", "model_name"]
+    base_keys = ["context", "question", "response"]
     retrieval_keys = ["positive_retrieval", "negative_retrieval"] if retrieval else []
     reranking_keys = ["positive_reranking", "negative_reranking"] if reranking else []
     relevant_keys = base_keys + retrieval_keys + reranking_keys
@@ -327,12 +323,13 @@ def generate_sample_dataset(
     input_type: str,
     system_prompt: str,
     document_column: str,
-    hard_negative: bool,
-    retrieval: bool,
-    reranking: bool,
+    retrieval_reranking: list[str],
     num_rows: str,
     oauth_token: Union[OAuthToken, None],
 ):
+    retrieval = "Retrieval" in retrieval_reranking
+    reranking = "Reranking" in retrieval_reranking
+
     if input_type == "prompt-input":
         dataframe = pd.DataFrame(columns=["context", "question", "response"])
     else:
@@ -348,7 +345,6 @@ def generate_sample_dataset(
         dataframe=dataframe,
         system_prompt=system_prompt,
         document_column=document_column,
-        hard_negative=hard_negative,
         retrieval=retrieval,
         reranking=reranking,
         num_rows=1,  # TODO: 10
@@ -388,15 +384,15 @@ def push_dataset(
     input_type: str,
     system_prompt: str,
     document_column: str,
-    hard_negative: bool,
-    retrieval: bool,
-    reranking: bool,
     num_rows: int,
     temperature: float,
     pipeline_code: str,
     oauth_token: Union[gr.OAuthToken, None] = None,
     progress=gr.Progress(),
 ) -> pd.DataFrame:
+    retrieval = "Retrieval" in retrieval_reranking
+    reranking = "Reranking" in retrieval_reranking
+
     if input_type != "prompt-input":
         dataframe, _ = load_dataset_file(
             repo_id=original_repo_id,
@@ -410,7 +406,6 @@ def push_dataset(
         dataframe=dataframe,
         system_prompt=system_prompt,
         document_column=document_column,
-        hard_negative=hard_negative,
         retrieval=retrieval,
         reranking=reranking,
         num_rows=num_rows,
@@ -614,9 +609,9 @@ with gr.Blocks() as app:
                     with gr.Row(equal_height=False):
                         with gr.Column(scale=2):
                             file_in = gr.File(
+                                label="Upload your file. Supported formats: .md, .txt, .docx, .pdf",
                                 file_count="multiple",
-                                label="Upload your file",
-                                file_types=[".md", ".txt"],
+                                file_types=[".md", ".txt", "docx", ".pdf"],
                             )
                             with gr.Row():
                                 clear_file_btn_part = gr.Button(
@@ -664,23 +659,11 @@ with gr.Blocks() as app:
                         multiselect=False,
                         allow_custom_value=False,
                     )
-                    hard_negative = gr.Checkbox(
-                        label="Hard Negative",
-                        value=True,
-                        interactive=True,
-                        info="If checked, it will generate hard negative examples.",
-                    )
-                    retrieval = gr.Checkbox(
-                        label="Retrieval",
-                        value=False,
-                        interactive=True,
-                        info="If checked, it will generate data for retrieval.",
-                    )
-                    reranking = gr.Checkbox(
-                        label="Reranking",
-                        value=False,
-                        interactive=True,
-                        info="If checked, it will generate data for reranking.",
+                    retrieval_reranking = gr.CheckboxGroup(
+                        choices=["Retrieval", "Reranking"],
+                        type="value",
+                        label="Data for RAG",
+                        info="Indicate the additional data you want to generate for RAG.",
                     )
                     with gr.Row():
                         clear_btn_full = gr.Button("Clear", variant="secondary")
@@ -740,9 +723,7 @@ with gr.Blocks() as app:
                         repo_id=search_in.value,
                         file_paths=file_in.value,
                         document_column=document_column.value,
-                        retrieval=retrieval.value,
-                        reranking=reranking.value,
-                        hard_negative=hard_negative.value,
+                        retrieval_reranking=retrieval_reranking.value,
                         num_rows=num_rows.value,
                         temperature=temperature.value,
                         input_type=input_type.value,
@@ -814,9 +795,7 @@ with gr.Blocks() as app:
             input_type,
             system_prompt,
             document_column,
-            hard_negative,
-            retrieval,
-            reranking,
+            retrieval_reranking,
             num_rows,
         ],
         outputs=dataframe,
@@ -830,9 +809,7 @@ with gr.Blocks() as app:
             input_type,
             system_prompt,
             document_column,
-            hard_negative,
-            retrieval,
-            reranking,
+            retrieval_reranking,
             num_rows,
         ],
         outputs=dataframe,
@@ -867,9 +844,7 @@ with gr.Blocks() as app:
             input_type,
             system_prompt,
             document_column,
-            hard_negative,
-            retrieval,
-            reranking,
+            retrieval_reranking,
             num_rows,
             temperature,
             pipeline_code,
@@ -887,9 +862,7 @@ with gr.Blocks() as app:
             file_in,
             input_type,
             document_column,
-            hard_negative,
-            retrieval,
-            reranking,
+            retrieval_reranking,
             num_rows,
             temperature,
         ],
