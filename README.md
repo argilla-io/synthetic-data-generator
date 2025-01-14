@@ -34,6 +34,7 @@ Supported Tasks:
 
 - Text Classification
 - Chat Data for Supervised Fine-Tuning
+- Retrieval Augmented Generation
 
 This tool simplifies the process of creating custom datasets, enabling you to:
 
