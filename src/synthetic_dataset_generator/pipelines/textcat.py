@@ -144,7 +144,7 @@ with Pipeline(name="textcat") as pipeline:
     task_generator = LoadDataFromDicts(data=[{{"task": SYSTEM_PROMPT}}])
 
     textcat_generation = GenerateTextClassificationData(
-        llm={_get_llm_class()}.from_dict({_get_llm().model_dump()}),
+        llm={_get_llm_class()}.from_dict({_get_llm().dump()}),
         seed=random.randint(0, 2**32 - 1),
         difficulty={None if difficulty == "mixed" else repr(difficulty)},
         clarity={None if clarity == "mixed" else repr(clarity)},
@@ -177,7 +177,7 @@ with Pipeline(name="textcat") as pipeline:
     )
 
     textcat_labeller = TextClassification(
-        llm={_get_llm_class()}.from_dict({_get_llm().model_dump()}),
+        llm={_get_llm_class()}.from_dict({_get_llm().dump()}),
         n={num_labels},
         available_labels={labels},
         context=SYSTEM_PROMPT,

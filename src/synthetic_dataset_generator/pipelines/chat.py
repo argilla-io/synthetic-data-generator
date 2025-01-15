@@ -242,7 +242,7 @@ SYSTEM_PROMPT = "{system_prompt}"
 
 with Pipeline(name="sft") as pipeline:
     magpie = MagpieGenerator(
-        llm={_get_llm_class()}.from_dict({_get_llm().model_dump()}),
+        llm={_get_llm_class()}.from_dict({_get_llm().dump()}),
         n_turns={num_turns},
         num_rows={num_rows},
         batch_size=1,

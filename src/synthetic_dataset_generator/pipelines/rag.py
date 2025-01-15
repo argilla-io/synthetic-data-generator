@@ -191,7 +191,7 @@ with Pipeline(name="rag") as pipeline:
     task_generator = LoadDataFromDicts(data=[{{"task": TASK_SYSTEM_PROMPT}}])
 
     sentence_similarity_generation = GenerateTextRetrievalData(
-        llm={_get_llm_class()}.from_dict({_get_llm().model_dump()}
+        llm={_get_llm_class()}.from_dict({_get_llm().dump()}
         ),
         seed=random.randint(0, 2**32 - 1),
         query_type="common",
@@ -232,14 +232,14 @@ with Pipeline(name="rag") as pipeline:
         triplet={True if retrieval else False},
         hard_negative=True,
         action="query",
-        llm={_get_llm_class()}.from_dict({_get_llm().model_dump()}
+        llm={_get_llm_class()}.from_dict({_get_llm().dump()}
         ),
         output_mappings={{"positive": "positive_retrieval", "negative": "negative_retrieval"}},
         input_batch_size=10,
     )
 
     generate_response = TextGeneration(
-        llm={_get_llm_class()}.from_dict({_get_llm().model_dump()}
+        llm={_get_llm_class()}.from_dict({_get_llm().dump()}
         ),
         system_prompt=SYSTEM_PROMPT_RAG,
         template=RAG_TEMPLATE,
@@ -256,7 +256,7 @@ with Pipeline(name="rag") as pipeline:
         triplet=True,
         hard_negative=True,
         action="semantically-similar",
-        llm={_get_llm_class()}.from_dict({_get_llm().model_dump()}
+        llm={_get_llm_class()}.from_dict({_get_llm().dump()}
         ),
         input_batch_size=10,
         output_mappings={{"positive": "positive_reranking", "negative": "negative_reranking"}},
@@ -278,9 +278,6 @@ with Pipeline(name="rag") as pipeline:
     textcat_generation.connect(keep_columns)
     keep_columns.connect(generate_retrieval_pairs)
     generate_retrieval_pairs.connect(generate_response)
-    
-    if __name__ == "__main__":
-        distiset = pipeline.run()
     """
 
     else:
@@ -288,15 +285,14 @@ with Pipeline(name="rag") as pipeline:
             pipeline += """
     load_the_dataset.connect(generate_retrieval_pairs, generate_reranking_pairs)
     generate_retrieval_pairs.connect(generate_response)
-    
-    if __name__ == "__main__":
-        distiset = pipeline.run()
     """
         else:
             pipeline += """
     load_the_dataset.connect(generate_retrieval_pairs)
     generate_retrieval_pairs.connect(generate_response)
+    """
     
+    pipeline += """
     if __name__ == "__main__":
         distiset = pipeline.run()
     """
