@@ -20,6 +20,7 @@ from unstructured.partition.auto import partition
 
 from synthetic_dataset_generator.apps.base import (
     combine_datasets,
+    get_iframe,
     hide_success_message,
     push_pipeline_code_to_hub,
     show_success_message,
@@ -48,25 +49,6 @@ from synthetic_dataset_generator.utils import (
     get_random_repo_name,
     swap_visibility,
 )
-
-
-def get_iframe(hub_repo_id: str) -> str:
-    if not hub_repo_id:
-        return ""
-
-    if not repo_exists(repo_id=hub_repo_id, repo_type="dataset"):
-        return ""
-
-    url = f"https://huggingface.co/datasets/{hub_repo_id}/embed/viewer"
-    iframe = f"""
-    <iframe
-        src="{url}"
-        frameborder="0"
-        width="100%"
-        height="600px"
-    ></iframe>
-    """
-    return iframe
 
 
 def _get_valid_columns(dataframe: pd.DataFrame):
@@ -158,7 +140,7 @@ def load_dataset_file(
     repo_id: str,
     file_paths: list[str],
     input_type: str,
-    num_rows: int = 10,
+    num_rows: int = 1,
     token: Union[OAuthToken, None] = None,
 ):
     if input_type == "dataset-input":
@@ -619,7 +601,7 @@ with gr.Blocks() as app:
                             file_in = gr.File(
                                 label="Upload your file. Supported formats: .md, .txt, .docx, .pdf",
                                 file_count="multiple",
-                                file_types=[".md", ".txt", "docx", ".pdf"],
+                                file_types=[".md", ".txt", ".docx", ".pdf"],
                             )
                             with gr.Row():
                                 clear_file_btn_part = gr.Button(

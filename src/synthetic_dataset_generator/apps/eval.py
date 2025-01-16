@@ -19,6 +19,7 @@ from huggingface_hub import HfApi, repo_exists
 
 from synthetic_dataset_generator.apps.base import (
     combine_datasets,
+    get_iframe,
     hide_success_message,
     push_pipeline_code_to_hub,
     show_success_message,
@@ -46,25 +47,6 @@ from synthetic_dataset_generator.utils import (
     process_columns,
     swap_visibility,
 )
-
-
-def get_iframe(hub_repo_id: str) -> str:
-    if not hub_repo_id:
-        return ""
-
-    if not repo_exists(repo_id=hub_repo_id, repo_type="dataset"):
-        return ""
-
-    url = f"https://huggingface.co/datasets/{hub_repo_id}/embed/viewer"
-    iframe = f"""
-    <iframe
-        src="{url}"
-        frameborder="0"
-        width="100%"
-        height="600px"
-    ></iframe>
-    """
-    return iframe
 
 
 def get_valid_columns(dataframe: pd.DataFrame):

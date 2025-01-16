@@ -92,12 +92,17 @@ class CustomDistisetWithAdditionalTag(distilabel.distiset.Distiset):
         elif ("prompt" in columns and "completion" in columns) or (
             "messages" in columns
         ):
-            task_categories: list[str] = ["text-generation", "text2text-generation"]
+            task_categories: list[str] = [
+                "text-generation",
+                "text2text-generation",
+                "question-answering",
+            ]
         elif "context" in columns and "question" in columns and "response" in columns:
             task_categories: list[str] = [
                 "text-generation",
                 "text2text-generation",
                 "text-retrieval",
+                "question-answering"
             ]
             if (
                 "positive_retrieval" in columns and "negative_retrieval" in columns
