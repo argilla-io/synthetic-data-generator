@@ -1,5 +1,6 @@
 import random
 import uuid
+from tqdm import tqdm
 from typing import Union
 
 import argilla as rg
@@ -14,7 +15,7 @@ from datasets import (
 from distilabel.distiset import Distiset
 from gradio.oauth import OAuthToken
 from gradio_huggingfacehub_search import HuggingfaceHubSearch
-from huggingface_hub import HfApi, repo_exists
+from huggingface_hub import HfApi
 from unstructured.chunking.title import chunk_by_title
 from unstructured.partition.auto import partition
 
@@ -63,7 +64,10 @@ def _get_valid_columns(dataframe: pd.DataFrame):
 
 
 def _load_dataset_from_hub(
-    repo_id: str, num_rows: int = 10, token: Union[OAuthToken, None] = None
+    repo_id: str,
+    num_rows: int = 10,
+    token: Union[OAuthToken, None] = None,
+    progress=gr.Progress(track_tqdm=True),
 ):
     if not repo_id:
         raise gr.Error("Hub repo id is required")
@@ -71,7 +75,7 @@ def _load_dataset_from_hub(
     splits = get_dataset_split_names(repo_id, subsets[0], token=token)
     ds = load_dataset(repo_id, subsets[0], split=splits[0], token=token, streaming=True)
     rows = []
-    for idx, row in enumerate(ds):
+    for idx, row in enumerate(tqdm(ds, desc="Loading the dataset", total=num_rows)):
         rows.append(row)
         if idx == num_rows:
             break
@@ -86,14 +90,16 @@ def _load_dataset_from_hub(
             label="Documents column",
             value=col_doc,
             interactive=(False if col_doc == "" else True),
+            multiselect=False,
         ),
     )
 
 
-def _preprocess_input_data(file_paths, num_rows):
+def _preprocess_input_data(file_paths, num_rows, progress=gr.Progress(track_tqdm=True)):
     data = {}
     total_chunks = 0
-    for file_path in file_paths:
+
+    for file_path in tqdm(file_paths, desc="Processing files", total=len(file_paths)):
         partitioned_file = partition(filename=file_path)
         chunks = [str(chunk) for chunk in chunk_by_title(partitioned_file)]
         data[file_path] = chunks
@@ -114,15 +120,15 @@ def _preprocess_input_data(file_paths, num_rows):
             label="Documents column",
             value=col_doc,
             interactive=(False if col_doc == "" else True),
+            multiselect=False,
         ),
     )
 
 
 def generate_system_prompt(dataset_description, progress=gr.Progress()):
-    progress(0.0, desc="Starting")
-    progress(0.3, desc="Initializing")
+    progress(0.1, desc="Initializing")
     generate_description = get_prompt_generator()
-    progress(0.7, desc="Generating")
+    progress(0.5, desc="Generating")
     result = next(
         generate_description.process(
             [
@@ -140,9 +146,11 @@ def load_dataset_file(
     repo_id: str,
     file_paths: list[str],
     input_type: str,
-    num_rows: int = 1,
+    num_rows: int = 10,
     token: Union[OAuthToken, None] = None,
+    progress=gr.Progress(),
 ):
+    progress(0.1, desc="Loading the source data")
     if input_type == "dataset-input":
         return _load_dataset_from_hub(repo_id, num_rows, token)
     else:
@@ -315,6 +323,7 @@ def generate_sample_dataset(
     retrieval_reranking: list[str],
     num_rows: str,
     oauth_token: Union[OAuthToken, None],
+    progress=gr.Progress(),
 ):
     retrieval = "Retrieval" in retrieval_reranking
     reranking = "Reranking" in retrieval_reranking
@@ -329,6 +338,7 @@ def generate_sample_dataset(
             num_rows=num_rows,
             token=oauth_token,
         )
+    progress(0.5, desc="Generating dataset")
     dataframe = generate_dataset(
         input_type=input_type,
         dataframe=dataframe,
@@ -349,11 +359,15 @@ def push_dataset_to_hub(
     oauth_token: Union[gr.OAuthToken, None],
     private: bool,
     pipeline_code: str,
+    progress=gr.Progress(),
 ):
+    progress(0.0, desc="Validating")
     repo_id = validate_push_to_hub(org_name, repo_name)
+    progress(0.5, desc="Creating dataset")
     dataset = Dataset.from_pandas(dataframe)
     dataset = combine_datasets(repo_id, dataset, oauth_token)
     distiset = Distiset({"default": dataset})
+    progress(0.9, desc="Pushing dataset")
     distiset.push_to_hub(
         repo_id=repo_id,
         private=private,
@@ -362,6 +376,8 @@ def push_dataset_to_hub(
         create_pr=False,
     )
     push_pipeline_code_to_hub(pipeline_code, org_name, repo_name, oauth_token)
+    progress(1.0, desc="Dataset pushed")
+    return dataframe
 
 
 def push_dataset(
@@ -391,6 +407,7 @@ def push_dataset(
             num_rows=num_rows,
             token=oauth_token,
         )
+    progress(0.5, desc="Generating dataset")
     dataframe = generate_dataset(
         input_type=input_type,
         dataframe=dataframe,
@@ -412,6 +429,7 @@ def push_dataset(
         if client is None:
             return ""
 
+        progress(0.5, desc="Creating dataset in Argilla")
         fields = [
             rg.TextField(
                 name="context",
@@ -507,7 +525,6 @@ def push_dataset(
             dataframe[f"{item}_length"] = dataframe[item].apply(len)
             dataframe[f"{item}_embeddings"] = get_embeddings(dataframe[item].to_list())
 
-        progress(0.5, desc="Creating dataset")
         rg_dataset = client.datasets(name=repo_name, workspace=hf_user)
         if rg_dataset is None:
             rg_dataset = rg.Dataset(
@@ -863,18 +880,15 @@ with gr.Blocks() as app:
         outputs=[pipeline_code_ui],
     )
 
-    clear_dataset_btn_part.click(fn=lambda x: "", inputs=[], outputs=[search_in])
-    clear_file_btn_part.click(fn=lambda x: "", inputs=[], outputs=[file_in])
+    clear_dataset_btn_part.click(fn=lambda : "", inputs=[], outputs=[search_in])
+    clear_file_btn_part.click(fn=lambda: None, inputs=[], outputs=[file_in])
     clear_prompt_btn_part.click(
-        fn=lambda x: "", inputs=[], outputs=[dataset_description]
+        fn=lambda : "", inputs=[], outputs=[dataset_description]
     )
     clear_btn_full.click(
-        fn=lambda df: ("", "", pd.DataFrame(columns=df.columns)),
+        fn=lambda df: ("", [], pd.DataFrame(columns=df.columns)),
         inputs=[dataframe],
-        outputs=[
-            search_in,
-            document_column,
-        ],
+        outputs=[document_column, retrieval_reranking, dataframe],
     )
 
     app.load(fn=swap_visibility, outputs=main_ui)

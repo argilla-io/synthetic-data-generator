@@ -61,10 +61,9 @@ def convert_dataframe_messages(dataframe: pd.DataFrame) -> pd.DataFrame:
 
 
 def generate_system_prompt(dataset_description, progress=gr.Progress()):
-    progress(0.0, desc="Starting")
-    progress(0.3, desc="Initializing")
+    progress(0.1, desc="Initializing")
     generate_description = get_prompt_generator()
-    progress(0.7, desc="Generating")
+    progress(0.5, desc="Generating")
     result = next(
         generate_description.process(
             [
@@ -79,6 +78,7 @@ def generate_system_prompt(dataset_description, progress=gr.Progress()):
 
 
 def generate_sample_dataset(system_prompt, num_turns, progress=gr.Progress()):
+    progress(0.1, desc="Generating sample dataset")
     dataframe = generate_dataset(
         system_prompt=system_prompt,
         num_turns=num_turns,
@@ -86,6 +86,7 @@ def generate_sample_dataset(system_prompt, num_turns, progress=gr.Progress()):
         progress=progress,
         is_sample=True,
     )
+    progress(1.0, desc="Sample dataset generated")
     return dataframe
 
 
@@ -274,6 +275,7 @@ def push_dataset(
         client = get_argilla_client()
         if client is None:
             return ""
+        progress(0.5, desc="Creating dataset in Argilla")
         if "messages" in dataframe.columns:
             settings = rg.Settings(
                 fields=[
@@ -370,7 +372,6 @@ def push_dataset(
             dataframe["completion_length"] = dataframe["completion"].apply(len)
             dataframe["prompt_embeddings"] = get_embeddings(dataframe["prompt"])
 
-        progress(0.5, desc="Creating dataset")
         rg_dataset = client.datasets(name=repo_name, workspace=hf_user)
         if rg_dataset is None:
             rg_dataset = rg.Dataset(
@@ -592,7 +593,7 @@ with gr.Blocks() as app:
                 triggers=[clear_btn_part.click, clear_btn_full.click],
                 fn=lambda _: ("", "", 1, _get_dataframe()),
                 inputs=[dataframe],
-                outputs=[dataset_description, system_prompt, num_turns, dataframe],
+                outputs=[system_prompt, num_turns, dataframe],
             )
             app.load(fn=get_org_dropdown, outputs=[org_name])
         app.load(fn=get_random_repo_name, outputs=[repo_name])

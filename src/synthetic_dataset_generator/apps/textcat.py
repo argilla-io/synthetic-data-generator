@@ -314,6 +314,7 @@ def push_dataset(
         if client is None:
             return ""
         labels = get_preprocess_labels(labels)
+        progress(0.5, desc="Creating dataset in Argilla")
         settings = rg.Settings(
             fields=[
                 rg.TextField(
@@ -354,7 +355,6 @@ def push_dataset(
         dataframe["text_length"] = dataframe["text"].apply(len)
         dataframe["text_embeddings"] = get_embeddings(dataframe["text"].to_list())
 
-        progress(0.5, desc="Creating dataset")
         rg_dataset = client.datasets(name=repo_name, workspace=hf_user)
         if rg_dataset is None:
             rg_dataset = rg.Dataset(
@@ -660,7 +660,7 @@ with gr.Blocks() as app:
             _get_dataframe(),
         ),
         inputs=[dataframe],
-        outputs=[dataset_description, system_prompt, labels, dataframe],
+        outputs=[dataset_description, system_prompt, labels, multi_label, dataframe],
     )
 
     app.load(fn=swap_visibility, outputs=main_ui)

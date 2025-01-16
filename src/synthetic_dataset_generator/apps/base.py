@@ -18,7 +18,7 @@ def validate_argilla_user_workspace_dataset(
     oauth_token: Union[OAuthToken, None] = None,
     progress=gr.Progress(),
 ) -> str:
-    progress(0, desc="Validating dataset configuration")
+    progress(0.1, desc="Validating dataset configuration")
     hf_user = HfApi().whoami(token=oauth_token.token)["name"]
     client = get_argilla_client()
     if dataset_name is None or dataset_name == "":
@@ -38,6 +38,7 @@ def validate_argilla_user_workspace_dataset(
     dataset = client.datasets(name=dataset_name, workspace=hf_user)
     if dataset and not add_to_existing_dataset:
         raise gr.Error(f"Dataset {dataset_name} already exists")
+    progress(1.0, desc="Dataset configuration validated")
     return ""
 
 
@@ -178,4 +179,3 @@ def get_iframe(hub_repo_id: str) -> str:
     ></iframe>
     """
     return iframe
-
