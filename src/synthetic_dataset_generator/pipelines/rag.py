@@ -1,3 +1,5 @@
+import os
+
 from typing import List
 
 from datasets import get_dataset_config_names, get_dataset_split_names
@@ -153,12 +155,11 @@ def generate_pipeline_code(
     reranking = "Reranking" in retrieval_reranking
     base_code = f"""
 # Requirements: `pip install distilabel[hf-inference-endpoints]`
-import os
-import random
+{"import random" if input_type == "prompt-input" else ""}
 from distilabel.models import {_get_llm_class()}
 from distilabel.pipeline import Pipeline
-from distilabel.steps import KeepColumns{", LoadDataFromDicts" if input_type == "file-input" else ""}{", LoadDataFromHub" if input_type == "dataset-input" else ""}
-from distilabel.steps.tasks import GenerateSentencePair, TextGeneration {", GenerateTextRetrievalData" if input_type == "prompt-type" else ""}
+from distilabel.steps import KeepColumns{", LoadDataFromDicts" if input_type != "dataset-input"  else ""}{", LoadDataFromHub" if input_type == "dataset-input" else ""}{", CombineOutputs" if retrieval and reranking else ""}
+from distilabel.steps.tasks import GenerateSentencePair, TextGeneration {", GenerateTextRetrievalData" if input_type == "prompt-input" else ""}
 
 SYSTEM_PROMPT_RAG = '''
 You are a helpful AI assistant. Your task is to answer the following question based on the provided document.
@@ -169,29 +170,33 @@ If you cannot answer the question based on the given information, state that cle
 '''
 
 RAG_TEMPLATE = '''Document:
-{{ {document_column} }}
+{{{{ filename }}}}
 
-Question: {{ question }}
+Question: {{{{ question }}}}
 
 Please provide a clear and concise answer to the question based on the information in the document:
 '''.rstrip()
 """
 
-    if input_type == "file_type":
-        base_code += f"""
-data = process_and_chunk_files(files=[{file_paths}])
+    if input_type == "file-input":
+        base_code += """
+data = process_and_chunk_files(files=[files])
 """
 
-    if input_type == "prompt-type":
+    if input_type == "prompt-input":
         pipeline = f"""
-TASK_SYSTEM_PROMPT =  {system_prompt}      
+TASK_SYSTEM_PROMPT =  '''
+
+{system_prompt}    
+''' 
 
 with Pipeline(name="rag") as pipeline:
 
     task_generator = LoadDataFromDicts(data=[{{"task": TASK_SYSTEM_PROMPT}}])
 
     sentence_similarity_generation = GenerateTextRetrievalData(
-        llm={_get_llm_class()}.from_dict({_get_llm().dump()}
+        llm={_get_llm_class()}.from_dict(
+            {_get_llm().dump()}
         ),
         seed=random.randint(0, 2**32 - 1),
         query_type="common",
@@ -201,52 +206,42 @@ with Pipeline(name="rag") as pipeline:
         output_mappings={{"positive_document": "anchor"}},
     )
 
-    keep_columns = KeepColumns(
+    keep_columns_prompt = KeepColumns(
         columns=["anchor"],
     )
-        """
-
+    """
     else:
         pipeline = """
 with Pipeline(name="rag") as pipeline:
 """
-    if input_type == "file_type":
-        pipeline += """
+        if input_type == "file-input":
+            pipeline += """
     load_the_dataset = LoadDataFromDicts(
         data = data,
     )
     """
-    else:
-        pipeline += f"""
+        else:
+            pipeline += f"""
     load_the_dataset = LoadDataFromHub(
         repo_id="{repo_id}",
         config="{subset}",
         split="{split}",
         num_examples={num_rows},
-        batch_size=2
+        batch_size=2,
+        output_mappings={{'{document_column}': 'anchor'}}
     )
-        """
+    """
 
     pipeline += f"""
     generate_retrieval_pairs = GenerateSentencePair(
-        triplet={True if retrieval else False},
+        triplet={str(retrieval)},
         hard_negative=True,
         action="query",
-        llm={_get_llm_class()}.from_dict({_get_llm().dump()}
+        llm={_get_llm_class()}.from_dict(
+            {_get_llm().dump()}
         ),
-        output_mappings={{"positive": "positive_retrieval", "negative": "negative_retrieval"}},
+        output_mappings={{"positive": "positive_retrieval"{', "negative": "negative_retrieval"' if retrieval else ""}}},
         input_batch_size=10,
-    )
-
-    generate_response = TextGeneration(
-        llm={_get_llm_class()}.from_dict({_get_llm().dump()}
-        ),
-        system_prompt=SYSTEM_PROMPT_RAG,
-        template=RAG_TEMPLATE,
-        columns=["{document_column}", "question"],
-        use_system_prompt=True,
-        input_mappings={{"question": "positive_retrieval"}},
-        output_mappings={{"generation": "response"}},
     )
     """
 
@@ -256,45 +251,52 @@ with Pipeline(name="rag") as pipeline:
         triplet=True,
         hard_negative=True,
         action="semantically-similar",
-        llm={_get_llm_class()}.from_dict({_get_llm().dump()}
+        llm={_get_llm_class()}.from_dict(
+            {_get_llm().dump()}
         ),
         input_batch_size=10,
         output_mappings={{"positive": "positive_reranking", "negative": "negative_reranking"}},
     )
-    """
-    # TODO: add https://distilabel.argilla.io/dev/components-gallery/steps/combineoutputs/ when released
-
-    if input_type == "prompt-type":
-        if reranking:
-            pipeline += """
-    task_generator.connect(sentence_similarity_generation)
-    textcat_generation.connect(keep_columns)
-    keep_columns.connect(generate_retrieval_pairs, generate_reranking_pairs)
-    generate_retrieval_pairs.connect(generate_response)
-    """
-        else:
-            pipeline += """
-    task_generator.connect(sentence_similarity_generation)
-    textcat_generation.connect(keep_columns)
-    keep_columns.connect(generate_retrieval_pairs)
-    generate_retrieval_pairs.connect(generate_response)
-    """
-
-    else:
-        if reranking:
-            pipeline += """
-    load_the_dataset.connect(generate_retrieval_pairs, generate_reranking_pairs)
-    generate_retrieval_pairs.connect(generate_response)
-    """
-        else:
-            pipeline += """
-    load_the_dataset.connect(generate_retrieval_pairs)
-    generate_retrieval_pairs.connect(generate_response)
-    """
     
+    combine_outputs = CombineOutputs()
+    """
+
+    pipeline += f"""
+    generate_response = TextGeneration(
+        llm={_get_llm_class()}.from_dict(
+            {_get_llm().dump()}
+        ),
+        system_prompt=SYSTEM_PROMPT_RAG,
+        template=RAG_TEMPLATE,
+        columns=["filename", "question"],
+        use_system_prompt=True,
+        input_mappings={{"filename": "anchor", "question": "positive_retrieval"}},
+        output_mappings={{"generation": "response"}},
+    )
+    
+    keep_columns = KeepColumns(
+        columns=["anchor", "positive_retrieval", "response"{', "negative_retrieval"' if retrieval else ""}{', "positive_reranking", "negative_reranking"' if reranking else ""}],
+    )
+    """
+
+    pipeline_steps = (
+        "[generate_retrieval_pairs, generate_reranking_pairs] >> combine_outputs >> generate_response >> keep_columns"
+        if reranking
+        else "generate_retrieval_pairs >> generate_response >> keep_columns"
+    )
+
+    pipeline += """
+    task_generator >> sentence_similarity_generation >> keep_columns_prompt >> {pipeline_steps}
+""".format(pipeline_steps=pipeline_steps) if input_type == "prompt-input" else """
+    load_the_dataset >> {pipeline_steps}
+""".format(pipeline_steps=pipeline_steps)
+
     pipeline += """
     if __name__ == "__main__":
-        distiset = pipeline.run()
+        distiset = pipeline.run(use_cache=False)
+        print(distiset)
+        if distiset:
+            print(distiset["default"]["train"][0])
     """
 
     return base_code + pipeline
