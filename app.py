@@ -1,3 +1,4 @@
 from synthetic_dataset_generator import launch
 
-launch()
+if __name__ == "__main__":
+    launch()
