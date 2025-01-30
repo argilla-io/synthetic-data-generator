@@ -597,39 +597,38 @@ with gr.Blocks() as app:
         gr.HTML(value="<hr>")
         gr.Markdown(value="## 2. Configure your task")
         with gr.Row(equal_height=True):
-            with gr.Row(equal_height=False):
-                with gr.Column(scale=2):
-                    system_prompt = gr.Textbox(
-                        label="System prompt",
-                        placeholder="You are a helpful assistant.",
-                        visible=False,
+            with gr.Column(scale=2):
+                system_prompt = gr.Textbox(
+                    label="System prompt",
+                    placeholder="You are a helpful assistant.",
+                    visible=False,
+                )
+                document_column = gr.Dropdown(
+                    label="Document Column",
+                    info="Select the document column to generate the RAG dataset",
+                    choices=["Load your data first in step 1."],
+                    value="Load your data first in step 1.",
+                    interactive=False,
+                    multiselect=False,
+                    allow_custom_value=False,
+                )
+                retrieval_reranking = gr.CheckboxGroup(
+                    choices=[("Retrieval", "Retrieval"), ("Reranking", "Reranking")],
+                    type="value",
+                    label="Data for RAG",
+                    info="Indicate the additional data you want to generate for RAG.",
+                )
+                with gr.Row():
+                    clear_btn_full = gr.Button("Clear", variant="secondary")
+                    btn_apply_to_sample_dataset = gr.Button(
+                        "Save", variant="primary"
                     )
-                    document_column = gr.Dropdown(
-                        label="Document Column",
-                        info="Select the document column to generate the RAG dataset",
-                        choices=["Load your data first in step 1."],
-                        value="Load your data first in step 1.",
-                        interactive=False,
-                        multiselect=False,
-                        allow_custom_value=False,
-                    )
-                    retrieval_reranking = gr.CheckboxGroup(
-                        choices=[("Retrieval", "Retrieval"), ("Reranking", "Reranking")],
-                        type="value",
-                        label="Data for RAG",
-                        info="Indicate the additional data you want to generate for RAG.",
-                    )
-                    with gr.Row():
-                        clear_btn_full = gr.Button("Clear", variant="secondary")
-                        btn_apply_to_sample_dataset = gr.Button(
-                            "Save", variant="primary"
-                        )
-                with gr.Column(scale=3):
-                    dataframe = gr.Dataframe(
-                        headers=["context", "question", "response"],
-                        wrap=True,
-                        interactive=False,
-                    )
+            with gr.Column(scale=3):
+                dataframe = gr.Dataframe(
+                    headers=["context", "question", "response"],
+                    wrap=True,
+                    interactive=False,
+                )
 
         gr.HTML(value="<hr>")
         gr.Markdown(value="## 3. Generate your dataset")

@@ -459,61 +459,60 @@ with gr.Blocks() as app:
         gr.HTML("<hr>")
         gr.Markdown("## 2. Configure your dataset")
         with gr.Row(equal_height=True):
-            with gr.Row(equal_height=False):
-                with gr.Column(scale=2):
-                    system_prompt = gr.Textbox(
-                        label="System prompt",
-                        placeholder="You are a helpful assistant.",
-                        visible=True,
+            with gr.Column(scale=2):
+                system_prompt = gr.Textbox(
+                    label="System prompt",
+                    placeholder="You are a helpful assistant.",
+                    visible=True,
+                )
+                labels = gr.Dropdown(
+                    choices=[],
+                    allow_custom_value=True,
+                    interactive=True,
+                    label="Labels",
+                    multiselect=True,
+                    info="Add the labels to classify the text.",
+                )
+                multi_label = gr.Checkbox(
+                    label="Multi-label",
+                    value=False,
+                    interactive=True,
+                    info="If checked, the text will be classified into multiple labels.",
+                )
+                clarity = gr.Dropdown(
+                    choices=[
+                        ("Clear", "clear"),
+                        (
+                            "Understandable",
+                            "understandable with some effort",
+                        ),
+                        ("Ambiguous", "ambiguous"),
+                        ("Mixed", "mixed"),
+                    ],
+                    value="mixed",
+                    label="Clarity",
+                    info="Set how easily the correct label or labels can be identified.",
+                    interactive=True,
+                )
+                difficulty = gr.Dropdown(
+                    choices=[
+                        ("High School", "high school"),
+                        ("College", "college"),
+                        ("PhD", "PhD"),
+                        ("Mixed", "mixed"),
+                    ],
+                    value="high school",
+                    label="Difficulty",
+                    info="Select the comprehension level for the text. Ensure it matches the task context.",
+                    interactive=True,
+                )
+                with gr.Row():
+                    clear_btn_full = gr.Button("Clear", variant="secondary")
+                    btn_apply_to_sample_dataset = gr.Button(
+                        "Save", variant="primary"
                     )
-                    labels = gr.Dropdown(
-                        choices=[],
-                        allow_custom_value=True,
-                        interactive=True,
-                        label="Labels",
-                        multiselect=True,
-                        info="Add the labels to classify the text.",
-                    )
-                    multi_label = gr.Checkbox(
-                        label="Multi-label",
-                        value=False,
-                        interactive=True,
-                        info="If checked, the text will be classified into multiple labels.",
-                    )
-                    clarity = gr.Dropdown(
-                        choices=[
-                            ("Clear", "clear"),
-                            (
-                                "Understandable",
-                                "understandable with some effort",
-                            ),
-                            ("Ambiguous", "ambiguous"),
-                            ("Mixed", "mixed"),
-                        ],
-                        value="mixed",
-                        label="Clarity",
-                        info="Set how easily the correct label or labels can be identified.",
-                        interactive=True,
-                    )
-                    difficulty = gr.Dropdown(
-                        choices=[
-                            ("High School", "high school"),
-                            ("College", "college"),
-                            ("PhD", "PhD"),
-                            ("Mixed", "mixed"),
-                        ],
-                        value="high school",
-                        label="Difficulty",
-                        info="Select the comprehension level for the text. Ensure it matches the task context.",
-                        interactive=True,
-                    )
-                    with gr.Row():
-                        clear_btn_full = gr.Button("Clear", variant="secondary")
-                        btn_apply_to_sample_dataset = gr.Button(
-                            "Save", variant="primary"
-                        )
-                with gr.Column(scale=3):
-                    dataframe = _get_dataframe()
+            with gr.Column(scale=3):
+                dataframe = _get_dataframe()
 
         gr.HTML("<hr>")
         gr.Markdown("## 3. Generate your dataset")
