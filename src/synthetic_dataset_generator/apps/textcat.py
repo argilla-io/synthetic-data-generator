@@ -458,7 +458,7 @@ with gr.Blocks() as app:
 
         gr.HTML("<hr>")
         gr.Markdown("## 2. Configure your dataset")
-        with gr.Row(equal_height=True):
+        with gr.Row(equal_height=False):
             with gr.Column(scale=2):
                 system_prompt = gr.Textbox(
                     label="System prompt",

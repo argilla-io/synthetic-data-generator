@@ -1,6 +1,6 @@
 import io
-import tqdm
 import uuid
+from tqdm import tqdm
 from typing import Union
 
 import argilla as rg

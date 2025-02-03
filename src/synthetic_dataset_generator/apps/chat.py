@@ -1,4 +1,5 @@
 import ast
+import json
 import random
 import uuid
 from typing import Dict, List, Union
@@ -33,15 +34,18 @@ from synthetic_dataset_generator.pipelines.base import get_rewritten_prompts
 from synthetic_dataset_generator.pipelines.chat import (
     DEFAULT_DATASET_DESCRIPTIONS,
     generate_pipeline_code,
+    get_follow_up_generator,
     get_magpie_generator,
     get_prompt_generator,
     get_response_generator,
+    get_sentence_pair_generator,
 )
 from synthetic_dataset_generator.pipelines.embeddings import (
     get_embeddings,
     get_sentence_embedding_dimensions,
 )
 from synthetic_dataset_generator.utils import (
+    column_to_list,
     get_argilla_client,
     get_org_dropdown,
     get_random_repo_name,
@@ -99,9 +103,9 @@ def load_dataset_file(
 ):
     progress(0.1, desc="Loading the source data")
     if input_type == "dataset-input":
-        return load_dataset_from_hub(repo_id, num_rows, token)
+        return load_dataset_from_hub(repo_id=repo_id, num_rows=num_rows, token=token)
     else:
-        return preprocess_input_data(file_paths, num_rows)
+        return preprocess_input_data(file_paths=file_paths, num_rows=num_rows)
 
 
 def generate_sample_dataset(
@@ -111,6 +115,7 @@ def generate_sample_dataset(
     system_prompt: str,
     document_column: str,
     num_turns: int,
+    num_rows: int,
     oauth_token: Union[OAuthToken, None],
     progress=gr.Progress(),
 ):
@@ -131,15 +136,14 @@ def generate_sample_dataset(
         system_prompt=system_prompt,
         document_column=document_column,
         num_turns=num_turns,
-        num_rows=10,
+        num_rows=num_rows,
         is_sample=True,
     )
     progress(1.0, desc="Sample dataset generated")
     return dataframe
 
 
-def generate_dataset(
-    input_type: str,
+def generate_dataset_from_prompt(
     system_prompt: str,
     num_turns: int = 1,
     num_rows: int = 10,
@@ -149,9 +153,7 @@ def generate_dataset(
 ) -> pd.DataFrame:
     num_rows = test_max_num_rows(num_rows)
     progress(0.0, desc="(1/2) Generating instructions")
-    magpie_generator = get_magpie_generator(
-        num_turns, temperature, is_sample
-    )
+    magpie_generator = get_magpie_generator(num_turns, temperature, is_sample)
     response_generator = get_response_generator(
         system_prompt, num_turns, temperature, is_sample
     )
@@ -255,6 +257,168 @@ def generate_dataset(
         outputs = distiset.to_pandas()[["messages"]]
     dataframe = pd.DataFrame(outputs)
     progress(1.0, desc="Dataset generation completed")
+    return dataframe
+
+
+def generate_dataset_from_seed(
+    dataframe: pd.DataFrame,
+    document_column: str,
+    num_turns: int = 1,
+    num_rows: int = 10,
+    temperature: float = 0.9,
+    is_sample: bool = False,
+    progress=gr.Progress(),
+) -> pd.DataFrame:
+    num_rows = test_max_num_rows(num_rows)
+    progress(0.0, desc="Initializing dataset generation")
+    document_data = column_to_list(dataframe, document_column)
+    if len(document_data) < num_rows:
+        document_data += random.choices(
+            document_data, k=num_rows - len(document_data)
+        )
+    instruction_generator = get_sentence_pair_generator(
+        temperature=temperature, is_sample=is_sample
+    )
+    response_generator = get_response_generator(
+        system_prompt=None, num_turns=1 , temperature=temperature, is_sample=is_sample
+    )
+    follow_up_generator_instruction = get_follow_up_generator(
+        type="instruction", temperature=temperature, is_sample=is_sample
+    )
+    follow_up_generator_response = get_follow_up_generator(
+        type="response", temperature=temperature, is_sample=is_sample
+    )
+    steps = 2 * num_turns
+    total_steps: int = num_rows * steps
+    step_progress = round(1 / steps, 2)
+    batch_size = DEFAULT_BATCH_SIZE
+
+    # create instructions
+    n_processed = 0
+    instruction_results = []
+    while n_processed < num_rows:
+        progress(
+            step_progress * n_processed / num_rows,
+            total=total_steps,
+            desc="Generating questions",
+        )
+        remaining_rows = num_rows - n_processed
+        batch_size = min(batch_size, remaining_rows)
+        batch = [
+            {"anchor": document}
+            for document in document_data[n_processed : n_processed + batch_size]
+        ]
+        questions = list(instruction_generator.process(inputs=batch))
+        instruction_results.extend(questions[0])
+        n_processed += batch_size
+    for result in instruction_results:
+        result["instruction"] = result["positive"]
+        result["prompt"] = result.pop("positive")
+
+    progress(step_progress, desc="Generating instructions")
+
+    # generate responses
+    n_processed = 0
+    response_results = []
+    while n_processed < num_rows:
+        progress(
+            step_progress + step_progress * n_processed / num_rows,
+            total=total_steps,
+            desc="Generating responses",
+        )
+        batch = instruction_results[n_processed : n_processed + batch_size]
+        responses = list(response_generator.process(inputs=batch))
+        response_results.extend(responses[0])
+        n_processed += batch_size
+    for result in response_results:
+        result["completion"] = result.pop("generation")
+
+    # generate follow-ups
+    if num_turns > 1:
+        final_conversations = []
+
+        for i in range(0, len(response_results), batch_size):
+            batch = response_results[i : i + batch_size]
+            conversations_batch = [
+                {"messages": [
+                        {"role": "user", "content": result["prompt"]},
+                        {"role": "assistant", "content": result["completion"]},
+                    ]
+                }
+                for result in batch
+            ]
+
+            for _ in range(num_turns - 1):
+                follow_up_instructions = list(follow_up_generator_instruction.process(inputs=conversations_batch))
+                for i, (conv, follow_up) in enumerate(
+                    zip(conversations_batch, follow_up_instructions[0])
+                ):
+                    conv['messages'].append({"role": "user", "content": follow_up["generation"]})
+
+                follow_up_responses = list(
+                    follow_up_generator_response.process(inputs=conversations_batch)
+                )
+                for i, (conv, follow_up) in enumerate(
+                    zip(conversations_batch, follow_up_responses[0])
+                ):
+                    conv["messages"].append(
+                        {"role": "assistant", "content": follow_up["generation"]}
+                    )
+
+            final_conversations.extend(
+                [{"messages": conv["messages"]} for conv in conversations_batch]
+            )
+            print("Type", type(final_conversations[0]["messages"]))
+
+    # create distiset
+    distiset_results = []
+    if num_turns == 1:
+        for result in response_results:
+            record = {}
+            for relevant_keys in ["prompt", "completion"]:
+                if relevant_keys in result:
+                    record[relevant_keys] = result[relevant_keys]
+            distiset_results.append(record)
+        dataframe = pd.DataFrame(distiset_results)
+    else:
+        distiset_results = final_conversations
+        dataframe = pd.DataFrame(distiset_results)
+        dataframe["messages"] = dataframe["messages"].apply(
+            lambda x: json.dumps(x)
+        )
+
+    progress(1.0, desc="Dataset generation completed")
+    return dataframe
+
+
+def generate_dataset(
+    input_type: str,
+    dataframe: pd.DataFrame,
+    system_prompt: str,
+    document_column: str,
+    num_turns: int = 1,
+    num_rows: int = 10,
+    temperature: float = 0.9,
+    is_sample: bool = False,
+    progress=gr.Progress(),
+) -> pd.DataFrame:
+    if input_type == "prompt-input":
+        dataframe = generate_dataset_from_prompt(
+            system_prompt=system_prompt,
+            num_turns=num_turns,
+            num_rows=num_rows,
+            temperature=temperature,
+            is_sample=is_sample,
+        )
+    else:
+        dataframe = generate_dataset_from_seed(
+            dataframe=dataframe,
+            document_column=document_column,
+            num_turns=num_turns,
+            num_rows=num_rows,
+            temperature=temperature,
+            is_sample=is_sample,
+        )
     return dataframe
 
 
@@ -508,8 +672,8 @@ with gr.Blocks() as app:
                 with gr.Column(scale=2):
                     input_type = gr.Dropdown(
                         label="Input type",
-                        choices=["dataset-input", "file-input", "prompt-input"],
-                        value="dataset-input",
+                        choices=["prompt-input", "dataset-input", "file-input"],
+                        value="prompt-input",
                         multiselect=False,
                         visible=False,
                     )
@@ -524,7 +688,9 @@ with gr.Blocks() as app:
                                     clear_prompt_btn_part = gr.Button(
                                         "Clear", variant="secondary"
                                     )
-                                    load_prompt_btn = gr.Button("Create", variant="primary")
+                                    load_prompt_btn = gr.Button(
+                                        "Create", variant="primary"
+                                    )
                             with gr.Column(scale=3):
                                 examples = gr.Examples(
                                     examples=DEFAULT_DATASET_DESCRIPTIONS,
@@ -545,7 +711,9 @@ with gr.Blocks() as app:
                                     clear_dataset_btn_part = gr.Button(
                                         "Clear", variant="secondary"
                                     )
-                                    load_dataset_btn = gr.Button("Load", variant="primary")
+                                    load_dataset_btn = gr.Button(
+                                        "Load", variant="primary"
+                                    )
                             with gr.Column(scale=3):
                                 examples = gr.Examples(
                                     examples=[
@@ -558,7 +726,9 @@ with gr.Blocks() as app:
                                     inputs=[search_in],
                                     run_on_click=True,
                                 )
-                                search_out = gr.HTML(label="Dataset preview", visible=False)
+                                search_out = gr.HTML(
+                                    label="Dataset preview", visible=False
+                                )
                     with gr.Tab("Load your file") as tab_file_input:
                         with gr.Row(equal_height=False):
                             with gr.Column(scale=2):
@@ -573,7 +743,9 @@ with gr.Blocks() as app:
                                     )
                                     load_file_btn = gr.Button("Load", variant="primary")
                             with gr.Column(scale=3):
-                                file_out = gr.HTML(label="Dataset preview", visible=False)
+                                file_out = gr.HTML(
+                                    label="Dataset preview", visible=False
+                                )
 
             gr.HTML(value="<hr>")
             gr.Markdown(value="## 2. Configure your dataset")
@@ -591,6 +763,7 @@ with gr.Blocks() as app:
                         interactive=False,
                         multiselect=False,
                         allow_custom_value=False,
+                        visible=False,
                     )
                     num_turns = gr.Number(
                         value=1,
@@ -625,7 +798,7 @@ with gr.Blocks() as app:
                     )
                     num_rows = gr.Number(
                         label="Number of rows",
-                        value=10,
+                        value=1, #TODO
                         interactive=True,
                         scale=1,
                     )
@@ -657,7 +830,10 @@ with gr.Blocks() as app:
                         visible=False,
                     ) as pipeline_code_ui:
                         code = generate_pipeline_code(
+                            repo_id=search_in.value,
+                            input_type=input_type.value,
                             system_prompt=system_prompt.value,
+                            document_column=document_column.value,
                             num_turns=num_turns.value,
                             num_rows=num_rows.value,
                         )
@@ -666,6 +842,14 @@ with gr.Blocks() as app:
                             language="python",
                             label="Distilabel Pipeline Code",
                         )
+
+    tab_prompt_input.select(
+        fn=lambda: "prompt-input",
+        inputs=[],
+        outputs=[input_type],
+    ).then(fn=show_system_prompt_visibility, inputs=[], outputs=[system_prompt]).then(
+        fn=hide_document_column_visibility, inputs=[], outputs=[document_column]
+    )
 
     tab_dataset_input.select(
         fn=lambda: "dataset-input",
@@ -683,18 +867,29 @@ with gr.Blocks() as app:
         fn=show_document_column_visibility, inputs=[], outputs=[document_column]
     )
 
-    tab_prompt_input.select(
-        fn=lambda: "prompt-input",
-        inputs=[],
-        outputs=[input_type],
-    ).then(fn=show_system_prompt_visibility, inputs=[], outputs=[system_prompt]).then(
-        fn=hide_document_column_visibility, inputs=[], outputs=[document_column]
-    )
-
     search_in.submit(
         fn=lambda df: pd.DataFrame(columns=df.columns),
         inputs=[dataframe],
         outputs=[dataframe],
+    )
+    
+    load_prompt_btn.click(
+        fn=generate_system_prompt,
+        inputs=[dataset_description],
+        outputs=[system_prompt],
+        show_progress=True,
+    ).success(
+        fn=generate_sample_dataset,
+        inputs=[
+            search_in,
+            file_in,
+            input_type,
+            system_prompt,
+            document_column,
+            num_turns,
+            num_rows,
+        ],
+        outputs=dataframe,
     )
 
     load_dataset_btn.click(
@@ -713,25 +908,6 @@ with gr.Blocks() as app:
             dataframe,
             document_column,
         ],
-    )
-
-    load_prompt_btn.click(
-        fn=generate_system_prompt,
-        inputs=[dataset_description],
-        outputs=[system_prompt],
-        show_progress=True,
-    ).success(
-        fn=generate_sample_dataset,
-        inputs=[
-            search_in,
-            file_in,
-            input_type,
-            system_prompt,
-            document_column,
-            num_turns,
-            num_rows,
-        ],
-        outputs=dataframe,
     )
 
     btn_apply_to_sample_dataset.click(
@@ -805,11 +981,9 @@ with gr.Blocks() as app:
         outputs=[pipeline_code_ui],
     )
 
-    clear_dataset_btn_part.click(fn=lambda : "", inputs=[], outputs=[search_in])
+    clear_dataset_btn_part.click(fn=lambda: "", inputs=[], outputs=[search_in])
     clear_file_btn_part.click(fn=lambda: None, inputs=[], outputs=[file_in])
-    clear_prompt_btn_part.click(
-        fn=lambda : "", inputs=[], outputs=[dataset_description]
-    )
+    clear_prompt_btn_part.click(fn=lambda: "", inputs=[], outputs=[dataset_description])
     clear_btn_full.click(
         fn=lambda df: ("", [], _get_dataframe()),
         inputs=[dataframe],

@@ -1,7 +1,6 @@
 import os
 import random
 import uuid
-from tqdm import tqdm
 from typing import Union
 
 import argilla as rg
@@ -80,9 +79,9 @@ def load_dataset_file(
 ):
     progress(0.1, desc="Loading the source data")
     if input_type == "dataset-input":
-        return load_dataset_from_hub(repo_id, num_rows, token)
+        return load_dataset_from_hub(repo_id=repo_id, num_rows=num_rows, token=token)
     else:
-        return preprocess_input_data(file_paths, num_rows)
+        return preprocess_input_data(file_paths=file_paths, num_rows=num_rows)
 
 
 def generate_sample_dataset(
@@ -596,7 +595,7 @@ with gr.Blocks() as app:
 
         gr.HTML(value="<hr>")
         gr.Markdown(value="## 2. Configure your task")
-        with gr.Row(equal_height=True):
+        with gr.Row(equal_height=False):
             with gr.Column(scale=2):
                 system_prompt = gr.Textbox(
                     label="System prompt",
