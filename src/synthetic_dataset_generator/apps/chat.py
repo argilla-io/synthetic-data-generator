@@ -333,10 +333,16 @@ def generate_dataset_from_seed(
 
     # generate follow-ups
     if num_turns > 1:
+        n_processed = 0
         final_conversations = []
 
-        for i in range(0, len(response_results), batch_size):
-            batch = response_results[i : i + batch_size]
+        while n_processed < num_rows:
+            progress(
+                step_progress + step_progress * n_processed / num_rows,
+                total=total_steps,
+                desc="Generating follow-ups",
+            )
+            batch = response_results[n_processed : n_processed + batch_size]
             conversations_batch = [
                 {
                     "messages": [
@@ -351,9 +357,7 @@ def generate_dataset_from_seed(
                 follow_up_instructions = list(
                     follow_up_generator_instruction.process(inputs=conversations_batch)
                 )
-                for i, (conv, follow_up) in enumerate(
-                    zip(conversations_batch, follow_up_instructions[0])
-                ):
+                for conv, follow_up in zip(conversations_batch, follow_up_instructions[0]):
                     conv["messages"].append(
                         {"role": "user", "content": follow_up["generation"]}
                     )
@@ -361,9 +365,7 @@ def generate_dataset_from_seed(
                 follow_up_responses = list(
                     follow_up_generator_response.process(inputs=conversations_batch)
                 )
-                for i, (conv, follow_up) in enumerate(
-                    zip(conversations_batch, follow_up_responses[0])
-                ):
+                for conv, follow_up in zip(conversations_batch, follow_up_responses[0]):
                     conv["messages"].append(
                         {"role": "assistant", "content": follow_up["generation"]}
                     )
@@ -371,6 +373,7 @@ def generate_dataset_from_seed(
             final_conversations.extend(
                 [{"messages": conv["messages"]} for conv in conversations_batch]
             )
+            n_processed += batch_size
 
     # create distiset
     distiset_results = []
