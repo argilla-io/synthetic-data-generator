@@ -1,12 +1,16 @@
 import io
 import uuid
+from tqdm import tqdm
 from typing import Union
 
 import argilla as rg
 import gradio as gr
-from datasets import Dataset, concatenate_datasets, load_dataset
+import pandas as pd
+from datasets import Dataset, concatenate_datasets, get_dataset_config_names, get_dataset_split_names, load_dataset
 from gradio import OAuthToken
 from huggingface_hub import HfApi, upload_file, repo_exists
+from unstructured.chunking.title import chunk_by_title
+from unstructured.partition.auto import partition
 
 from synthetic_dataset_generator.constants import MAX_NUM_ROWS
 from synthetic_dataset_generator.utils import get_argilla_client
@@ -179,3 +183,81 @@ def get_iframe(hub_repo_id: str) -> str:
     ></iframe>
     """
     return iframe
+
+
+def _get_valid_columns(dataframe: pd.DataFrame):
+    doc_valid_columns = []
+
+    for col in dataframe.columns:
+        sample_val = dataframe[col].iloc[0]
+        if isinstance(sample_val, str):
+            doc_valid_columns.append(col)
+
+    return doc_valid_columns
+
+
+def load_dataset_from_hub(
+    repo_id: str,
+    num_rows: int = 10,
+    token: Union[OAuthToken, None] = None,
+    progress=gr.Progress(track_tqdm=True),
+):
+    if not repo_id:
+        raise gr.Error("Please provide a Hub repo ID")
+    subsets = get_dataset_config_names(repo_id, token=token)
+    splits = get_dataset_split_names(repo_id, subsets[0], token=token)
+    ds = load_dataset(repo_id, subsets[0], split=splits[0], token=token, streaming=True)
+    rows = []
+    for idx, row in enumerate(tqdm(ds, desc="Loading the dataset", total=num_rows)):
+        rows.append(row)
+        if idx == num_rows:
+            break
+    ds = Dataset.from_list(rows)
+    dataframe = ds.to_pandas()
+    doc_valid_columns = _get_valid_columns(dataframe)
+    col_doc = doc_valid_columns[0] if doc_valid_columns else ""
+    return (
+        dataframe,
+        gr.Dropdown(
+            choices=doc_valid_columns,
+            label="Documents column",
+            value=col_doc,
+            interactive=(False if col_doc == "" else True),
+            multiselect=False,
+        ),
+    )
+
+
+def preprocess_input_data(
+    file_paths: list[str], num_rows: int, progress=gr.Progress(track_tqdm=True)
+):
+    if not file_paths:
+        raise gr.Error("Please provide an input file")
+
+    data = {}
+    total_chunks = 0
+
+    for file_path in tqdm(file_paths, desc="Processing files", total=len(file_paths)):
+        partitioned_file = partition(filename=file_path)
+        chunks = [str(chunk) for chunk in chunk_by_title(partitioned_file)]
+        data[file_path] = chunks
+        total_chunks += len(chunks)
+        if total_chunks >= num_rows:
+            break
+
+    dataframe = pd.DataFrame.from_records(
+        [(k, v) for k, values in data.items() for v in values],
+        columns=["filename", "chunks"],
+    )
+    col_doc = "chunks"
+
+    return (
+        dataframe,
+        gr.Dropdown(
+            choices=["chunks"],
+            label="Documents column",
+            value=col_doc,
+            interactive=(False if col_doc == "" else True),
+            multiselect=False,
+        ),
+    )

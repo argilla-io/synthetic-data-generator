@@ -1,4 +1,10 @@
-from distilabel.steps.tasks import ChatGeneration, Magpie, TextGeneration
+from datasets import get_dataset_config_names, get_dataset_split_names
+from distilabel.steps.tasks import (
+    ChatGeneration,
+    Magpie,
+    GenerateSentencePair,
+    TextGeneration,
+)
 
 from synthetic_dataset_generator.constants import (
     MAGPIE_PRE_QUERY_TEMPLATE,
@@ -118,6 +124,18 @@ The prompt you write should follow the same style and structure as the following
 User dataset description:
 """
 
+FOLLOW_UP_TEMPLATE = """Conversation:
+{% for message in messages %}
+    {% if message.role == "user" %}
+User Question: {{ message.content }}
+    {% elif message.role == "assistant" %}
+Assistant Response: {{ message.content }}
+    {% endif %}
+{% endfor %}
+
+Please generate the next logical user message in this conversation. Do not include any other information or 'User Question' in your response.
+""".rstrip()
+
 DEFAULT_DATASET_DESCRIPTIONS = [
     "rude customer assistant for a phone company",
     "assistant that solves math puzzles using python",
@@ -203,6 +221,21 @@ def get_magpie_generator(num_turns: int, temperature: float, is_sample: bool):
     return magpie_generator
 
 
+def get_sentence_pair_generator(temperature: float, is_sample: bool):
+    generation_kwargs = {
+        "temperature": temperature,
+        "max_new_tokens": 256 if is_sample else MAX_NUM_TOKENS,
+    }
+    sentence_pair_generator = GenerateSentencePair(
+        llm=_get_llm(generation_kwargs=generation_kwargs),
+        triplet=False,
+        action="query",
+        hard_negative=True,
+    )
+    sentence_pair_generator.load()
+    return sentence_pair_generator
+
+
 def get_response_generator(
     system_prompt: str, num_turns: int, temperature: float, is_sample: bool
 ):
@@ -231,36 +264,236 @@ def get_response_generator(
     return response_generator
 
 
-def generate_pipeline_code(system_prompt: str, num_turns: int, num_rows: int):
-    input_mappings = _get_output_mappings(num_turns)
+def get_follow_up_generator(type: str, temperature: float, is_sample: bool):
+    if type == "instruction":
+        generation_kwargs = {
+            "temperature": temperature,
+            "max_new_tokens": 256 if is_sample else int(MAX_NUM_TOKENS * 0.5),
+        }
+        follow_up_generator = TextGeneration(
+            llm=_get_llm(generation_kwargs=generation_kwargs),
+            template=FOLLOW_UP_TEMPLATE,
+            columns=["messages"],
+        )
+    else:
+        generation_kwargs = {
+            "temperature": temperature,
+            "max_new_tokens": MAX_NUM_TOKENS,
+        }
+        follow_up_generator = ChatGeneration(
+            llm=_get_llm(generation_kwargs=generation_kwargs),
+        )
+    follow_up_generator.load()
+    return follow_up_generator
 
+def generate_pipeline_code_system_prompt(
+    system_prompt: str,
+    num_turns: int,
+    num_rows: int,
+):
+    input_mappings = _get_output_mappings(num_turns)
+    code = f"""
+    # Requirements: `pip install distilabel[hf-inference-endpoints]`
+    import os
+    from distilabel.pipeline import Pipeline
+    from distilabel.steps import KeepColumns
+    from distilabel.steps.tasks import MagpieGenerator
+    from distilabel.llms import {_get_llm_class()}
+
+    SYSTEM_PROMPT = "{system_prompt}"
+
+    with Pipeline(name="sft") as pipeline:
+        magpie = MagpieGenerator(
+            llm={_get_llm_class()}.from_dict(
+                {_get_llm().dump()}
+            ),
+            n_turns={num_turns},
+            num_rows={num_rows},
+            batch_size=1,
+            system_prompt=SYSTEM_PROMPT,
+            output_mappings={input_mappings},
+        )
+        keep_columns = KeepColumns(
+            columns={list(input_mappings.values())} + ["model_name"],
+        )
+        magpie.connect(keep_columns)
+
+    if __name__ == "__main__":
+        distiset = pipeline.run()
+    """
+    return code
+
+def generate_pipeline_code_seed(
+    repo_id: str,
+    subset: str,
+    split: str,
+    input_type: str,
+    document_column: str,
+    num_turns: int,
+    num_rows: int,
+):
     code = f"""
 # Requirements: `pip install distilabel[hf-inference-endpoints]`
-import os
+from distilabel.models import {_get_llm_class()}
 from distilabel.pipeline import Pipeline
-from distilabel.steps import KeepColumns
-from distilabel.steps.tasks import MagpieGenerator
-from distilabel.llms import {_get_llm_class()}
+from distilabel.steps import KeepColumns{", LoadDataFromDicts" if input_type != "dataset-input"  else ""}{", LoadDataFromHub" if input_type == "dataset-input" else ""}
+from distilabel.steps.tasks import GenerateSentencePair, TextGeneration {", ChatGeneration" if num_turns > 1 else ""}
+"""
 
-SYSTEM_PROMPT = "{system_prompt}"
+    if num_turns > 1:
+        code += """
+FOLLOW_UP_TEMPLATE = '''Conversation:
+{{% for message in messages %}}
+    {{% if message.role == "user" %}}
+User Question: {{{{ message.content }}}}
+    {{% elif message.role == "assistant" %}}
+Assistant Response: {{{{ message.content }}}}
+    {{% endif %}}
+{{% endfor %}}
+
+Please generate the next logical user message in this conversation. Do not include any other information or 'User Question' in your response.
+'''.rstrip()
+
+@step(inputs=["prompt", "completion"], outputs=["messages"])
+def PrepareMessages(*inputs: StepInput) -> StepOutput:
+    for input in inputs:
+        for item in input:
+            item["messages"] = [
+                {"role": "user", "content": item["prompt"]},
+                {"role": "assistant", "content": item["completion"]},
+            ]
+        yield input
+
+
+@step(inputs=["messages", "generation"], outputs=["messages"])
+def FormatMessagesInstruction(*inputs: StepInput) -> StepOutput:
+    for input in inputs:
+        for item in input:
+            item["messages"].append({"role": "user", "content": item["generation"]})
+        yield input
+
+
+@step(inputs=["messages", "generation"], outputs=["messages"])
+def FormatMessagesResponse(*inputs: StepInput) -> StepOutput:
+    for input in inputs:
+        for item in input:
+            item["messages"].append({"role": "assistant", "content": item["generation"]})
+        yield input
+"""
+
+    if input_type == "dataset-input":
+        code += f"""
+with Pipeline(name="sft") as pipeline:
+    load_the_dataset = LoadDataFromHub(
+        repo_id='{repo_id}',
+        config='{subset}',
+        split='{split}',
+        num_examples={num_rows},
+        batch_size=2,
+        output_mappings={{'{document_column}':'anchor'}},
+    )
+    """
+
+    else: 
+        code += """
+data = process_and_chunk_files(files=[files])
 
 with Pipeline(name="sft") as pipeline:
-    magpie = MagpieGenerator(
+    load_the_dataset = LoadDataFromDicts(
+        data = data
+    )
+"""
+    code += f"""
+    instruction_generator = GenerateSentencePair(
+        name="instruction_generation",
+        triplet=False,
+        hard_negative=True,
+        action="query",
         llm={_get_llm_class()}.from_dict(
             {_get_llm().dump()}
         ),
-        n_turns={num_turns},
-        num_rows={num_rows},
-        batch_size=1,
-        system_prompt=SYSTEM_PROMPT,
-        output_mappings={input_mappings},
+        input_batch_size=10,
+        output_mappings={{"positive": "prompt"}},
     )
-    keep_columns = KeepColumns(
-        columns={list(input_mappings.values())} + ["model_name"],
-    )
-    magpie.connect(keep_columns)
 
+    response_generator = TextGeneration(
+        name="response_generation",
+        llm={_get_llm_class()}.from_dict(
+            {_get_llm().dump()}
+        ),
+        input_batch_size=10,
+        input_mappings={{"instruction": "prompt"}},
+        output_mappings={{"generation": "completion"}},
+    )
+    """
+
+    if num_turns > 1:
+        code += """
+    prepare_messages = PrepareMessages()
+    """
+
+        for i in range(num_turns - 1):
+            code += f"""
+    follow_up_instruction_{i} = TextGeneration(
+        llm={_get_llm_class()}.from_dict(
+            {_get_llm().dump()}
+        ),
+        template=FOLLOW_UP_TEMPLATE,
+        columns=["messages"],
+    )
+    format_instruction_{i} = FormatMessagesInstruction()
+    follow_up_response_{i} = ChatGeneration(
+        llm={_get_llm_class()}.from_dict(
+            {_get_llm().dump()}
+        ),
+    )
+    format_response_{i} = FormatMessagesResponse()
+    """
+
+    if num_turns > 1:
+        code += """
+        keep_columns = KeepColumns(columns=["messages"])
+        """
+        code += "load_the_dataset >> instruction_generator >> response_generator >> prepare_messages"
+        
+        for i in range(1, num_turns + 1):
+            code += f" >> follow_up_instruction_{i} >> format_instruction_{i} >> follow_up_response_{i} >> format_response_{i}"
+            
+        code += " >> keep_columns"
+
+    code += """
 if __name__ == "__main__":
     distiset = pipeline.run()
+)
 """
     return code
+
+def generate_pipeline_code(
+    repo_id: str,
+    input_type: str,
+    system_prompt: str,
+    document_column: str,
+    num_turns: int,
+    num_rows: int,
+):
+    if input_type == "dataset-input" and repo_id is not None:
+        subset = get_dataset_config_names(repo_id)[0]
+        split = get_dataset_split_names(repo_id, subset)[0]
+    else:
+        subset = "default"
+        split = "train"
+    if input_type == "prompt-type":
+        return generate_pipeline_code_system_prompt(
+            system_prompt=system_prompt,
+            num_turns=num_turns,
+            num_rows=num_rows,
+        )
+    return generate_pipeline_code_seed(
+        repo_id=repo_id,
+        subset=subset,
+        split=split,
+        input_type=input_type,
+        document_column=document_column,
+        num_turns=num_turns,
+        num_rows=num_rows,
+    )

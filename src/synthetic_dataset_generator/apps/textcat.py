@@ -458,7 +458,7 @@ with gr.Blocks() as app:
 
         gr.HTML("<hr>")
         gr.Markdown("## 2. Configure your dataset")
-        with gr.Row(equal_height=True):
+        with gr.Row(equal_height=False):
             with gr.Column(scale=2):
                 system_prompt = gr.Textbox(
                     label="System prompt",
@@ -508,9 +508,7 @@ with gr.Blocks() as app:
                 )
                 with gr.Row():
                     clear_btn_full = gr.Button("Clear", variant="secondary")
-                    btn_apply_to_sample_dataset = gr.Button(
-                        "Save", variant="primary"
-                    )
+                    btn_apply_to_sample_dataset = gr.Button("Save", variant="primary")
             with gr.Column(scale=3):
                 dataframe = _get_dataframe()
 
@@ -574,45 +572,37 @@ with gr.Blocks() as app:
         fn=generate_system_prompt,
         inputs=[dataset_description],
         outputs=[system_prompt, labels],
-        show_progress=True,
     ).then(
         fn=generate_sample_dataset,
         inputs=[system_prompt, difficulty, clarity, labels, multi_label],
         outputs=[dataframe],
-        show_progress=True,
     )
 
     btn_apply_to_sample_dataset.click(
         fn=validate_input_labels,
         inputs=[labels],
         outputs=[labels],
-        show_progress=True,
     ).success(
         fn=generate_sample_dataset,
         inputs=[system_prompt, difficulty, clarity, labels, multi_label],
         outputs=[dataframe],
-        show_progress=True,
     )
 
     btn_push_to_hub.click(
         fn=validate_argilla_user_workspace_dataset,
         inputs=[repo_name],
         outputs=[success_message],
-        show_progress=True,
     ).then(
         fn=validate_push_to_hub,
         inputs=[org_name, repo_name],
         outputs=[success_message],
-        show_progress=True,
     ).success(
         fn=validate_input_labels,
         inputs=[labels],
         outputs=[labels],
-        show_progress=True,
     ).success(
         fn=hide_success_message,
         outputs=[success_message],
-        show_progress=True,
     ).success(
         fn=hide_pipeline_code_visibility,
         inputs=[],
@@ -633,7 +623,6 @@ with gr.Blocks() as app:
             pipeline_code,
         ],
         outputs=[success_message],
-        show_progress=True,
     ).success(
         fn=show_success_message,
         inputs=[org_name, repo_name],

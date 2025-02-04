@@ -15,7 +15,7 @@ from datasets import (
 from distilabel.distiset import Distiset
 from gradio.oauth import OAuthToken  #
 from gradio_huggingfacehub_search import HuggingfaceHubSearch
-from huggingface_hub import HfApi, repo_exists
+from huggingface_hub import HfApi
 
 from synthetic_dataset_generator.apps.base import (
     combine_datasets,
@@ -130,9 +130,9 @@ def load_dataset_from_hub(
             choices=response_valid_columns,
             label="Response column",
             value=col_response,
-            interactive=False
-            if col_response == "No valid response columns found."
-            else True,
+            interactive=(
+                False if col_response == "No valid response columns found." else True
+            ),
         ),
         prompt_template,
         structured_output,
@@ -831,16 +831,13 @@ with gr.Blocks() as app:
         fn=validate_argilla_user_workspace_dataset,
         inputs=[repo_name],
         outputs=[success_message],
-        show_progress=True,
     ).then(
         fn=validate_push_to_hub,
         inputs=[org_name, repo_name],
         outputs=[success_message],
-        show_progress=True,
     ).success(
         fn=hide_success_message,
         outputs=[success_message],
-        show_progress=True,
     ).success(
         fn=hide_pipeline_code_visibility,
         inputs=[],
@@ -862,7 +859,6 @@ with gr.Blocks() as app:
             pipeline_code,
         ],
         outputs=[success_message],
-        show_progress=True,
     ).success(
         fn=show_success_message,
         inputs=[org_name, repo_name],
@@ -882,14 +878,14 @@ with gr.Blocks() as app:
         outputs=[pipeline_code_ui],
     )
 
-    clear_btn_part.click(fn=lambda : "", inputs=[], outputs=[search_in])
+    clear_btn_part.click(fn=lambda: "", inputs=[], outputs=[search_in])
     clear_btn_full.click(
         fn=lambda df: ("", "", pd.DataFrame(columns=df.columns)),
         inputs=[dataframe],
         outputs=[
             instruction_instruction_response,
             response_instruction_response,
-            dataframe
+            dataframe,
         ],
     )
 
