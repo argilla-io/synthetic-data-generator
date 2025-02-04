@@ -273,14 +273,12 @@ def generate_dataset_from_seed(
     progress(0.0, desc="Initializing dataset generation")
     document_data = column_to_list(dataframe, document_column)
     if len(document_data) < num_rows:
-        document_data += random.choices(
-            document_data, k=num_rows - len(document_data)
-        )
+        document_data += random.choices(document_data, k=num_rows - len(document_data))
     instruction_generator = get_sentence_pair_generator(
         temperature=temperature, is_sample=is_sample
     )
     response_generator = get_response_generator(
-        system_prompt=None, num_turns=1 , temperature=temperature, is_sample=is_sample
+        system_prompt=None, num_turns=1, temperature=temperature, is_sample=is_sample
     )
     follow_up_generator_instruction = get_follow_up_generator(
         type="instruction", temperature=temperature, is_sample=is_sample
@@ -340,7 +338,8 @@ def generate_dataset_from_seed(
         for i in range(0, len(response_results), batch_size):
             batch = response_results[i : i + batch_size]
             conversations_batch = [
-                {"messages": [
+                {
+                    "messages": [
                         {"role": "user", "content": result["prompt"]},
                         {"role": "assistant", "content": result["completion"]},
                     ]
@@ -349,11 +348,15 @@ def generate_dataset_from_seed(
             ]
 
             for _ in range(num_turns - 1):
-                follow_up_instructions = list(follow_up_generator_instruction.process(inputs=conversations_batch))
+                follow_up_instructions = list(
+                    follow_up_generator_instruction.process(inputs=conversations_batch)
+                )
                 for i, (conv, follow_up) in enumerate(
                     zip(conversations_batch, follow_up_instructions[0])
                 ):
-                    conv['messages'].append({"role": "user", "content": follow_up["generation"]})
+                    conv["messages"].append(
+                        {"role": "user", "content": follow_up["generation"]}
+                    )
 
                 follow_up_responses = list(
                     follow_up_generator_response.process(inputs=conversations_batch)
@@ -382,9 +385,7 @@ def generate_dataset_from_seed(
     else:
         distiset_results = final_conversations
         dataframe = pd.DataFrame(distiset_results)
-        dataframe["messages"] = dataframe["messages"].apply(
-            lambda x: json.dumps(x)
-        )
+        dataframe["messages"] = dataframe["messages"].apply(lambda x: json.dumps(x))
 
     progress(1.0, desc="Dataset generation completed")
     return dataframe
@@ -871,12 +872,11 @@ with gr.Blocks() as app:
         inputs=[dataframe],
         outputs=[dataframe],
     )
-    
+
     load_prompt_btn.click(
         fn=generate_system_prompt,
         inputs=[dataset_description],
         outputs=[system_prompt],
-        show_progress=True,
     ).success(
         fn=generate_sample_dataset,
         inputs=[
@@ -891,22 +891,11 @@ with gr.Blocks() as app:
         outputs=dataframe,
     )
 
-    load_dataset_btn.click(
+    gr.on(
+        triggers=[load_dataset_btn.click, load_file_btn.click],
         fn=load_dataset_file,
         inputs=[search_in, file_in, input_type],
-        outputs=[
-            dataframe,
-            document_column,
-        ],
-    )
-
-    load_file_btn.click(
-        fn=load_dataset_file,
-        inputs=[search_in, file_in, input_type],
-        outputs=[
-            dataframe,
-            document_column,
-        ],
+        outputs=[dataframe, document_column],
     )
 
     btn_apply_to_sample_dataset.click(
@@ -927,16 +916,13 @@ with gr.Blocks() as app:
         fn=validate_argilla_user_workspace_dataset,
         inputs=[repo_name],
         outputs=[success_message],
-        show_progress=True,
     ).then(
         fn=validate_push_to_hub,
         inputs=[org_name, repo_name],
         outputs=[success_message],
-        show_progress=True,
     ).success(
         fn=hide_success_message,
         outputs=[success_message],
-        show_progress=True,
     ).success(
         fn=hide_pipeline_code_visibility,
         inputs=[],
@@ -958,7 +944,6 @@ with gr.Blocks() as app:
             pipeline_code,
         ],
         outputs=[success_message],
-        show_progress=True,
     ).success(
         fn=show_success_message,
         inputs=[org_name, repo_name],
@@ -984,9 +969,9 @@ with gr.Blocks() as app:
     clear_file_btn_part.click(fn=lambda: None, inputs=[], outputs=[file_in])
     clear_prompt_btn_part.click(fn=lambda: "", inputs=[], outputs=[dataset_description])
     clear_btn_full.click(
-        fn=lambda df: ("", [], _get_dataframe()),
+        fn=lambda df: ("", "", [], _get_dataframe()),
         inputs=[dataframe],
-        outputs=[document_column, num_turns, dataframe],
+        outputs=[system_prompt, document_column, num_turns, dataframe],
     )
 
     app.load(fn=swap_visibility, outputs=main_ui)

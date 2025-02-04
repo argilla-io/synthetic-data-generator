@@ -287,10 +287,7 @@ def get_follow_up_generator(type: str, temperature: float, is_sample: bool):
     return follow_up_generator
 
 def generate_pipeline_code_system_prompt(
-    repo_id: str,
-    input_type: str,
     system_prompt: str,
-    document_column: str,
     num_turns: int,
     num_rows: int,
 ):
@@ -331,7 +328,6 @@ def generate_pipeline_code_seed(
     subset: str,
     split: str,
     input_type: str,
-    system_prompt: str,
     document_column: str,
     num_turns: int,
     num_rows: int,
@@ -404,7 +400,7 @@ data = process_and_chunk_files(files=[files])
 
 with Pipeline(name="sft") as pipeline:
     load_the_dataset = LoadDataFromDicts(
-        data = data,
+        data = data
     )
 """
     code += f"""
@@ -497,7 +493,6 @@ def generate_pipeline_code(
         subset=subset,
         split=split,
         input_type=input_type,
-        system_prompt=system_prompt,
         document_column=document_column,
         num_turns=num_turns,
         num_rows=num_rows,

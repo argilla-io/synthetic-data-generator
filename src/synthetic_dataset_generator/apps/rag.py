@@ -32,11 +32,11 @@ from synthetic_dataset_generator.pipelines.embeddings import (
 )
 from synthetic_dataset_generator.pipelines.rag import (
     DEFAULT_DATASET_DESCRIPTIONS,
+    generate_pipeline_code,
     get_chunks_generator,
     get_prompt_generator,
-    generate_pipeline_code,
-    get_sentence_pair_generator,
     get_response_generator,
+    get_sentence_pair_generator,
 )
 from synthetic_dataset_generator.utils import (
     column_to_list,
@@ -352,9 +352,7 @@ def push_dataset(
         dataframe, org_name, repo_name, oauth_token, private, pipeline_code
     )
     dataframe = dataframe[
-        dataframe.applymap(
-            lambda x: str(x).strip() if pd.notna(x) else x
-        ).apply(
+        dataframe.applymap(lambda x: str(x).strip() if pd.notna(x) else x).apply(
             lambda row: row.notna().all() and (row != "").all(), axis=1
         )
     ]
@@ -619,9 +617,7 @@ with gr.Blocks() as app:
                 )
                 with gr.Row():
                     clear_btn_full = gr.Button("Clear", variant="secondary")
-                    btn_apply_to_sample_dataset = gr.Button(
-                        "Save", variant="primary"
-                    )
+                    btn_apply_to_sample_dataset = gr.Button("Save", variant="primary")
             with gr.Column(scale=3):
                 dataframe = gr.Dataframe(
                     headers=["context", "question", "response"],
@@ -715,29 +711,17 @@ with gr.Blocks() as app:
         outputs=[dataframe],
     )
 
-    load_dataset_btn.click(
+    gr.on(
+        triggers=[load_dataset_btn.click, load_file_btn.click],
         fn=load_dataset_file,
         inputs=[search_in, file_in, input_type],
-        outputs=[
-            dataframe,
-            document_column,
-        ],
-    )
-
-    load_file_btn.click(
-        fn=load_dataset_file,
-        inputs=[search_in, file_in, input_type],
-        outputs=[
-            dataframe,
-            document_column,
-        ],
+        outputs=[dataframe, document_column],
     )
 
     load_prompt_btn.click(
         fn=generate_system_prompt,
         inputs=[dataset_description],
         outputs=[system_prompt],
-        show_progress=True,
     ).success(
         fn=generate_sample_dataset,
         inputs=[
@@ -770,16 +754,13 @@ with gr.Blocks() as app:
         fn=validate_argilla_user_workspace_dataset,
         inputs=[repo_name],
         outputs=[success_message],
-        show_progress=True,
     ).then(
         fn=validate_push_to_hub,
         inputs=[org_name, repo_name],
         outputs=[success_message],
-        show_progress=True,
     ).success(
         fn=hide_success_message,
         outputs=[success_message],
-        show_progress=True,
     ).success(
         fn=hide_pipeline_code_visibility,
         inputs=[],
@@ -801,7 +782,6 @@ with gr.Blocks() as app:
             pipeline_code,
         ],
         outputs=[success_message],
-        show_progress=True,
     ).success(
         fn=show_success_message,
         inputs=[org_name, repo_name],
@@ -823,11 +803,9 @@ with gr.Blocks() as app:
         outputs=[pipeline_code_ui],
     )
 
-    clear_dataset_btn_part.click(fn=lambda : "", inputs=[], outputs=[search_in])
+    clear_dataset_btn_part.click(fn=lambda: "", inputs=[], outputs=[search_in])
     clear_file_btn_part.click(fn=lambda: None, inputs=[], outputs=[file_in])
-    clear_prompt_btn_part.click(
-        fn=lambda : "", inputs=[], outputs=[dataset_description]
-    )
+    clear_prompt_btn_part.click(fn=lambda: "", inputs=[], outputs=[dataset_description])
     clear_btn_full.click(
         fn=lambda df: ("", [], pd.DataFrame(columns=df.columns)),
         inputs=[dataframe],
