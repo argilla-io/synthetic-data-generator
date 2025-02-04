@@ -281,7 +281,7 @@ def get_follow_up_generator(type: str, temperature: float, is_sample: bool):
             "max_new_tokens": MAX_NUM_TOKENS,
         }
         follow_up_generator = ChatGeneration(
-            llm=_get_llm(generation_kwargs=generation_kwargs),
+            llm=_get_llm(is_completion=True, generation_kwargs=generation_kwargs),
         )
     follow_up_generator.load()
     return follow_up_generator
@@ -336,7 +336,7 @@ def generate_pipeline_code_seed(
 # Requirements: `pip install distilabel[hf-inference-endpoints]`
 from distilabel.models import {_get_llm_class()}
 from distilabel.pipeline import Pipeline
-from distilabel.steps import KeepColumns{", LoadDataFromDicts" if input_type != "dataset-input"  else ""}{", LoadDataFromHub" if input_type == "dataset-input" else ""}
+from distilabel.steps import KeepColumns{", LoadDataFromDicts" if input_type != "dataset-input"  else ""}{", LoadDataFromHub" if input_type == "dataset-input" else ""}{", StepInput, step" if num_turns > 1 else ""}
 from distilabel.steps.tasks import GenerateSentencePair, TextGeneration {", ChatGeneration" if num_turns > 1 else ""}
 """
 
@@ -455,10 +455,10 @@ with Pipeline(name="sft") as pipeline:
         keep_columns = KeepColumns(columns=["messages"])
         """
         code += "load_the_dataset >> instruction_generator >> response_generator >> prepare_messages"
-        
+
         for i in range(1, num_turns + 1):
             code += f" >> follow_up_instruction_{i} >> format_instruction_{i} >> follow_up_response_{i} >> format_response_{i}"
-            
+
         code += " >> keep_columns"
 
     code += """

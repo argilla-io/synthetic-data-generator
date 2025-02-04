@@ -159,7 +159,7 @@ def generate_dataset_from_prompt(
     response_generator = get_response_generator(
         system_prompt=system_prompt,
         num_turns=num_turns,
-        temperature=temperature_completion or temperature,
+        temperature=temperature or temperature_completion,
         is_sample=is_sample,
     )
     total_steps: int = num_rows * 2
@@ -271,6 +271,7 @@ def generate_dataset_from_seed(
     num_turns: int = 1,
     num_rows: int = 10,
     temperature: float = 0.9,
+    temperature_completion: Union[float, None] = None,
     is_sample: bool = False,
     progress=gr.Progress(),
 ) -> pd.DataFrame:
@@ -283,13 +284,18 @@ def generate_dataset_from_seed(
         temperature=temperature, is_sample=is_sample
     )
     response_generator = get_response_generator(
-        system_prompt=None, num_turns=1, temperature=temperature, is_sample=is_sample
+        system_prompt=None,
+        num_turns=1,
+        temperature=temperature or temperature_completion,
+        is_sample=is_sample,
     )
     follow_up_generator_instruction = get_follow_up_generator(
         type="instruction", temperature=temperature, is_sample=is_sample
     )
     follow_up_generator_response = get_follow_up_generator(
-        type="response", temperature=temperature, is_sample=is_sample
+        type="response",
+        temperature=temperature or temperature_completion,
+        is_sample=is_sample,
     )
     steps = 2 * num_turns
     total_steps: int = num_rows * steps
@@ -407,6 +413,7 @@ def generate_dataset(
     num_turns: int = 1,
     num_rows: int = 10,
     temperature: float = 0.9,
+    temperature_completion: Union[float, None] = None,
     is_sample: bool = False,
     progress=gr.Progress(),
 ) -> pd.DataFrame:
@@ -416,6 +423,7 @@ def generate_dataset(
             num_turns=num_turns,
             num_rows=num_rows,
             temperature=temperature,
+            temperature_completion=temperature_completion,
             is_sample=is_sample,
         )
     else:
@@ -425,6 +433,7 @@ def generate_dataset(
             num_turns=num_turns,
             num_rows=num_rows,
             temperature=temperature,
+            temperature_completion=temperature_completion,
             is_sample=is_sample,
         )
     return dataframe
@@ -1002,4 +1011,3 @@ with gr.Blocks() as app:
     app.load(fn=get_org_dropdown, outputs=[org_name])
     app.load(fn=get_random_repo_name, outputs=[repo_name])
     app.load(fn=show_temperature_completion, outputs=[temperature_completion])
-
