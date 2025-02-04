@@ -288,10 +288,7 @@ with Pipeline(name="rag") as pipeline:
 
     pipeline += """
     if __name__ == "__main__":
-        distiset = pipeline.run(use_cache=False)
-        print(distiset)
-        if distiset:
-            print(distiset["default"]["train"][0])
+        distiset = pipeline.run()
     """
 
     return base_code + pipeline

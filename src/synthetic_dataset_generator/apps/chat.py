@@ -368,7 +368,6 @@ def generate_dataset_from_seed(
             final_conversations.extend(
                 [{"messages": conv["messages"]} for conv in conversations_batch]
             )
-            print("Type", type(final_conversations[0]["messages"]))
 
     # create distiset
     distiset_results = []
@@ -798,7 +797,7 @@ with gr.Blocks() as app:
                     )
                     num_rows = gr.Number(
                         label="Number of rows",
-                        value=1, #TODO
+                        value=10,
                         interactive=True,
                         scale=1,
                     )
