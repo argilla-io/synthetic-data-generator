@@ -18,8 +18,8 @@ os.environ["OLLAMA_BASE_URL"] = (
 os.environ["MODEL"] = "llama3.2" # model for instruction generation
 os.environ["MODEL_COMPLETION"] = "llama3.2:1b" # model for completion generation
 
-os.environ["TOKENIZER_ID"] = "meta-llama/Llama-3.2-1B-Instruct" # tokenizer for instruction generation
-os.environ["TOKENIZER_ID_COMPLETION"] = "meta-llama/Llama-3.2-3B-Instruct" # tokenizer for completion generation
+os.environ["TOKENIZER_ID"] = "meta-llama/Llama-3.2-3B-Instruct" # tokenizer for instruction generation
+os.environ["TOKENIZER_ID_COMPLETION"] = "meta-llama/Llama-3.2-1B-Instruct" # tokenizer for completion generation
 
 os.environ["MAGPIE_PRE_QUERY_TEMPLATE"] = "llama3" # magpie template required for instruction generation
 
