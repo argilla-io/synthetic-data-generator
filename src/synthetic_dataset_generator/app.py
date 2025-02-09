@@ -18,7 +18,7 @@ button[role="tab"][aria-selected="true"]:hover {border-color: var(--button-prima
 #system_prompt_examples {color: var(--body-text-color) !important; background-color: var(--block-background-fill) !important;}
 .container {padding-inline: 0 !important}
 #sign_in_button {flex-grow: 0; width: auto !important; display: flex; align-items: center; justify-content: center; margin: 0 auto;}
-.datasets {height: 100px;}
+.datasets {height: 70px;}
 """
 
 image = """<br><img src="https://raw.githubusercontent.com/argilla-io/synthetic-data-generator/main/assets/logo.svg" alt="Synthetic Data Generator Logo" style="display: block; margin-left: auto; margin-right: auto; width: clamp(50%, 400px, 100%)"/>"""

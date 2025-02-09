@@ -12,11 +12,10 @@ from huggingface_hub import HfApi, upload_file, repo_exists
 from unstructured.chunking.title import chunk_by_title
 from unstructured.partition.auto import partition
 
-from synthetic_dataset_generator.constants import MAX_NUM_ROWS
+from synthetic_dataset_generator.constants import MAX_NUM_ROWS, SAVE_LOCAL_DIR
 from synthetic_dataset_generator.utils import get_argilla_client
 import os
-save_dir = "outputs"
-os.makedirs(save_dir, exist_ok=True)
+os.makedirs(SAVE_LOCAL_DIR, exist_ok=True)
 
 def validate_argilla_user_workspace_dataset(
     dataset_name: str,
