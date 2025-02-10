@@ -14,8 +14,11 @@ from unstructured.partition.auto import partition
 
 from synthetic_dataset_generator.constants import MAX_NUM_ROWS, SAVE_LOCAL_DIR
 from synthetic_dataset_generator.utils import get_argilla_client
-import os
-os.makedirs(SAVE_LOCAL_DIR, exist_ok=True)
+
+if SAVE_LOCAL_DIR is not None:
+    import os
+    os.makedirs(SAVE_LOCAL_DIR, exist_ok=True)
+
 
 def validate_argilla_user_workspace_dataset(
     dataset_name: str,

@@ -9,7 +9,7 @@ MAX_NUM_ROWS = int(os.getenv("MAX_NUM_ROWS", 1000))
 DEFAULT_BATCH_SIZE = int(os.getenv("DEFAULT_BATCH_SIZE", 5))
 
 # Directory for outputs
-SAVE_LOCAL_DIR = os.getenv("SAVE_LOCAL_DIR", "outputs")
+SAVE_LOCAL_DIR = os.getenv(key="SAVE_LOCAL_DIR", default=None)
 
 # Models
 MODEL = os.getenv("MODEL", "meta-llama/Meta-Llama-3.1-8B-Instruct")

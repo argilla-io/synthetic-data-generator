@@ -710,6 +710,13 @@ def hide_pipeline_code_visibility():
 def show_temperature_completion():
     if MODEL != MODEL_COMPLETION:
         return {temperature_completion: gr.Slider(value=0.9, visible=True)}
+        
+def show_save_local():
+    return {
+        btn_save_local: gr.Button(visible=True),
+        csv_file: gr.File(visible=True),
+        json_file: gr.File(visible=True)
+    }
 
 
 ######################
@@ -893,10 +900,10 @@ with gr.Blocks() as app:
                         "Push to Hub", variant="primary", scale=2
                     )
                     btn_save_local = gr.Button(
-                        "Save locally", variant="primary", scale=2
+                        "Save locally", variant="primary", scale=2, visible=False
                     )
-                    csv_file = gr.File(label="CSV", elem_classes="datasets")
-                    json_file = gr.File(label="JSON", elem_classes="datasets")
+                    csv_file = gr.File(label="CSV", elem_classes="datasets", visible=False)
+                    json_file = gr.File(label="JSON", elem_classes="datasets", visible=False)
                 with gr.Column(scale=3):
                     success_message = gr.Markdown(
                         visible=True,
@@ -1073,3 +1080,5 @@ with gr.Blocks() as app:
     app.load(fn=get_org_dropdown, outputs=[org_name])
     app.load(fn=get_random_repo_name, outputs=[repo_name])
     app.load(fn=show_temperature_completion, outputs=[temperature_completion])
+    if SAVE_LOCAL_DIR is not None:
+        app.load(fn=show_save_local, outputs=[btn_save_local, csv_file, json_file])
